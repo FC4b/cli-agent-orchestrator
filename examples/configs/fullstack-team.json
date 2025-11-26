@@ -1,0 +1,10 @@
+{
+  "name": "fullstack-project",
+  "agents": [
+    { "agent": "code_supervisor", "provider": "claude_code" },
+    { "agent": "frontend_developer", "provider": "claude_code" },
+    { "agent": "backend_developer", "provider": "claude_code" },
+    { "agent": "reviewer", "provider": "claude_code" }
+  ]
+}
+

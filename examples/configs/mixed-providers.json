@@ -1,0 +1,11 @@
+{
+  "name": "multi-provider-project",
+  "agents": [
+    { "agent": "code_supervisor", "provider": "claude_code" },
+    { "agent": "frontend_developer", "provider": "claude_code" },
+    { "agent": "backend_developer", "provider": "codex_cli" },
+    { "agent": "mobile_developer", "provider": "gemini_cli" },
+    { "agent": "reviewer", "provider": "claude_code" }
+  ]
+}
+

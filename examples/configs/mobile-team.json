@@ -1,0 +1,10 @@
+{
+  "name": "mobile-app",
+  "agents": [
+    { "agent": "code_supervisor", "provider": "claude_code" },
+    { "agent": "mobile_developer", "provider": "claude_code" },
+    { "agent": "backend_developer", "provider": "claude_code" },
+    { "agent": "reviewer", "provider": "claude_code" }
+  ]
+}
+

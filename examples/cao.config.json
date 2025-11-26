@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/awslabs/cli-agent-orchestrator/main/cao.config.schema.json",
+  "name": "my-project",
+  "agents": [
+    { "agent": "code_supervisor", "provider": "claude_code" },
+    { "agent": "frontend_developer", "provider": "claude_code" },
+    { "agent": "backend_developer", "provider": "claude_code" },
+    { "agent": "reviewer", "provider": "claude_code" }
+  ]
+}
+

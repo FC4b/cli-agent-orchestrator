@@ -1,0 +1,9 @@
+{
+  "name": "simple-project",
+  "agents": [
+    { "agent": "code_supervisor", "provider": "claude_code" },
+    { "agent": "developer", "provider": "claude_code" },
+    { "agent": "reviewer", "provider": "claude_code" }
+  ]
+}
+
