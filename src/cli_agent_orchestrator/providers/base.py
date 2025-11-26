@@ -1,9 +1,10 @@
 """Base provider interface for CLI tool abstraction."""
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 
 from cli_agent_orchestrator.models.terminal import TerminalStatus
+from cli_agent_orchestrator.utils.cli_check import validate_cli_or_raise
 
 
 class BaseProvider(ABC):
@@ -20,6 +21,32 @@ class BaseProvider(ABC):
     def status(self) -> TerminalStatus:
         """Get current provider status."""
         return self._status
+
+    @abstractmethod
+    def get_cli_command(self) -> str:
+        """Get the CLI command name for this provider.
+
+        Returns:
+            str: The CLI command (e.g., 'claude', 'q', 'codex', 'gemini')
+        """
+        pass
+
+    @abstractmethod
+    def get_install_instructions(self) -> str:
+        """Get installation instructions for this CLI tool.
+
+        Returns:
+            str: Human-readable installation instructions
+        """
+        pass
+
+    def validate_cli_installed(self) -> None:
+        """Validate that the CLI tool is installed and available in PATH.
+
+        Raises:
+            CLINotFoundError: If the CLI tool is not found
+        """
+        validate_cli_or_raise(self.get_cli_command(), self.get_install_instructions())
 
     @abstractmethod
     def initialize(self) -> bool:

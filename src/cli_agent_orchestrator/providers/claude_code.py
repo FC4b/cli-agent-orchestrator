@@ -18,6 +18,14 @@ class ProviderError(Exception):
     pass
 
 
+# CLI installation instructions
+CLAUDE_CODE_INSTALL_INSTRUCTIONS = """Claude Code CLI can be installed via npm:
+
+    npm install -g @anthropic-ai/claude-code
+
+For more information, visit: https://docs.anthropic.com/en/docs/claude-code"""
+
+
 # Regex patterns for Claude Code output analysis
 ANSI_CODE_PATTERN = r"\x1b\[[0-9;]*m"
 RESPONSE_PATTERN = r"⏺(?:\x1b\[[0-9;]*m)*\s+"  # Handle any ANSI codes between marker and text
@@ -43,6 +51,14 @@ class ClaudeCodeProvider(BaseProvider):
         self._initialized = False
         self._agent_profile = agent_profile
 
+    def get_cli_command(self) -> str:
+        """Return the Claude Code CLI command name."""
+        return "claude"
+
+    def get_install_instructions(self) -> str:
+        """Return Claude Code installation instructions."""
+        return CLAUDE_CODE_INSTALL_INSTRUCTIONS
+
     def _build_claude_command(self) -> List[str]:
         """Build Claude Code command with agent profile if provided."""
         command_parts = ["claude"]
@@ -67,6 +83,9 @@ class ClaudeCodeProvider(BaseProvider):
 
     def initialize(self) -> bool:
         """Initialize Claude Code provider by starting claude command."""
+        # Validate CLI is installed before attempting to start
+        self.validate_cli_installed()
+
         # Build command with agent profile support
         command_parts = self._build_claude_command()
         command = " ".join(command_parts)

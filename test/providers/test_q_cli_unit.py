@@ -22,10 +22,13 @@ def load_fixture(filename: str) -> str:
 class TestQCliProviderInitialization:
     """Test Q CLI provider initialization."""
 
+    @patch("cli_agent_orchestrator.utils.cli_check.check_cli_available", return_value=True)
     @patch("cli_agent_orchestrator.providers.q_cli.wait_for_shell")
     @patch("cli_agent_orchestrator.providers.q_cli.wait_until_status")
     @patch("cli_agent_orchestrator.providers.q_cli.tmux_client")
-    def test_initialize_success(self, mock_tmux, mock_wait_status, mock_wait_shell):
+    def test_initialize_success(
+        self, mock_tmux, mock_wait_status, mock_wait_shell, mock_cli_check
+    ):
         """Test successful initialization."""
         mock_wait_shell.return_value = True
         mock_wait_status.return_value = True
@@ -40,9 +43,10 @@ class TestQCliProviderInitialization:
         )
         mock_wait_status.assert_called_once()
 
+    @patch("cli_agent_orchestrator.utils.cli_check.check_cli_available", return_value=True)
     @patch("cli_agent_orchestrator.providers.q_cli.wait_for_shell")
     @patch("cli_agent_orchestrator.providers.q_cli.tmux_client")
-    def test_initialize_shell_timeout(self, mock_tmux, mock_wait_shell):
+    def test_initialize_shell_timeout(self, mock_tmux, mock_wait_shell, mock_cli_check):
         """Test initialization with shell timeout."""
         mock_wait_shell.return_value = False
 
@@ -51,10 +55,13 @@ class TestQCliProviderInitialization:
         with pytest.raises(TimeoutError, match="Shell initialization timed out"):
             provider.initialize()
 
+    @patch("cli_agent_orchestrator.utils.cli_check.check_cli_available", return_value=True)
     @patch("cli_agent_orchestrator.providers.q_cli.wait_for_shell")
     @patch("cli_agent_orchestrator.providers.q_cli.wait_until_status")
     @patch("cli_agent_orchestrator.providers.q_cli.tmux_client")
-    def test_initialize_q_cli_timeout(self, mock_tmux, mock_wait_status, mock_wait_shell):
+    def test_initialize_q_cli_timeout(
+        self, mock_tmux, mock_wait_status, mock_wait_shell, mock_cli_check
+    ):
         """Test initialization with Q CLI timeout."""
         mock_wait_shell.return_value = True
         mock_wait_status.return_value = False

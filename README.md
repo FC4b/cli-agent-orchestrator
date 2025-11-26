@@ -22,7 +22,7 @@ CLI Agent Orchestrator (CAO) implements a hierarchical multi-agent system that e
 * **Flow - Scheduled runs** – Automated execution of workflows at specified intervals using cron-like scheduling, enabling routine tasks and monitoring workflows to run unattended.
 * **Context preservation** – The supervisor agent provides only necessary context to each worker agent, avoiding context pollution while maintaining workflow coherence.
 * **Direct worker interaction and steering** – Users can interact directly with worker agents to provide additional steering, distinguishing from sub-agents features by allowing real-time guidance and course correction.
-* **Advanced CLI integration** – CAO agents have full access to advanced features of the developer CLI, such as the [sub-agents](https://docs.claude.com/en/docs/claude-code/sub-agents) feature of Claude Code, [Custom Agent](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line-custom-agents.html) of Amazon Q Developer for CLI and so on.
+* **Advanced CLI integration** – CAO agents have full access to advanced features of the developer CLI, such as the [sub-agents](https://docs.claude.com/en/docs/claude-code/sub-agents) feature of Claude Code, [Custom Agent](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line-custom-agents.html) of Amazon Q Developer for CLI, [Codex CLI](https://github.com/openai/codex) from OpenAI, and [Gemini CLI](https://geminicli.com/docs/) from Google.
 
 For detailed project structure and architecture, see [CODEBASE.md](CODEBASE.md).
 
@@ -77,17 +77,38 @@ When installing from a file or URL, the agent is saved to your local agent store
 
 **Provider Selection:**
 
-By default, agents are installed for the `q_cli` provider (Amazon Q CLI). You can specify a different provider:
+CAO supports multiple CLI providers. By default, agents are installed for the `q_cli` provider (Amazon Q CLI). You can specify a different provider:
 
 ```bash
-# Install for Kiro CLI
-cao install developer --provider kiro_cli
-
 # Install for Amazon Q CLI (default)
 cao install developer --provider q_cli
+
+# Install for Kiro CLI
+cao install developer --provider kiro_cli
 ```
 
-Note: The `claude_code` provider does not require agent installation.
+**Supported Providers:**
+
+| Provider | Command | Description |
+|----------|---------|-------------|
+| `q_cli` | Amazon Q CLI | AWS's AI coding assistant (default) |
+| `kiro_cli` | Kiro CLI | Kiro AI assistant |
+| `claude_code` | Claude Code | Anthropic's Claude Code CLI |
+| `codex_cli` | Codex CLI | OpenAI's Codex CLI |
+| `gemini_cli` | Gemini CLI | Google's Gemini CLI |
+
+Note: The `claude_code`, `codex_cli`, and `gemini_cli` providers do not require agent installation - they use their native configuration systems (CLAUDE.md, AGENTS.md, etc.).
+
+**Check Available Providers:**
+
+To see which CLI tools are installed on your machine:
+
+```bash
+cao providers
+
+# With verbose output (shows installation paths)
+cao providers --verbose
+```
 
 For details on creating custom agent profiles, see [docs/agent-profile.md](docs/agent-profile.md).
 
@@ -106,7 +127,33 @@ cao launch --agents code_supervisor
 
 # Or specify a provider
 cao launch --agents code_supervisor --provider kiro_cli
+
+# Launch with Codex CLI
+cao launch --agents code_supervisor --provider codex_cli
+
+# Launch with Gemini CLI
+cao launch --agents code_supervisor --provider gemini_cli
 ```
+
+**Working Directory (VS Code Workspaces):**
+
+Agents launch in a working directory to access project files. Use `--cwd` to specify:
+
+```bash
+# Launch in current directory (default)
+cao launch --agents developer
+
+# Launch in a specific project folder
+cao launch --agents developer --cwd /path/to/my-project
+
+# Launch in current VS Code workspace (from integrated terminal)
+cao launch --agents developer --cwd .
+
+# Short form
+cao launch --agents developer -C ~/projects/my-app
+```
+
+**Note:** CAO validates that the required CLI tool is installed before launching. If the CLI is not found, you'll receive helpful installation instructions.
 
 Shutdown sessions:
 

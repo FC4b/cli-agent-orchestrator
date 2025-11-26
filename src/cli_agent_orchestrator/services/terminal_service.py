@@ -33,9 +33,21 @@ class OutputMode(str, Enum):
 
 
 def create_terminal(
-    provider: str, agent_profile: str, session_name: Optional[str] = None, new_session: bool = False
+    provider: str,
+    agent_profile: str,
+    session_name: Optional[str] = None,
+    new_session: bool = False,
+    cwd: Optional[str] = None,
 ) -> Terminal:
-    """Create terminal, optionally creating new session with it."""
+    """Create terminal, optionally creating new session with it.
+
+    Args:
+        provider: Provider type (e.g., 'q_cli', 'claude_code')
+        agent_profile: Agent profile name
+        session_name: Optional session name (auto-generated if not provided)
+        new_session: Whether to create a new session
+        cwd: Working directory for the terminal (default: current directory)
+    """
     try:
         terminal_id = generate_terminal_id()
 
@@ -55,15 +67,17 @@ def create_terminal(
                 raise ValueError(f"Session '{session_name}' already exists")
 
             # Create new tmux session with this terminal as the initial window
-            tmux_client.create_session(session_name, window_name, terminal_id)
+            tmux_client.create_session(session_name, window_name, terminal_id, start_directory=cwd)
         else:
             # Add window to existing session
             if not tmux_client.session_exists(session_name):
                 raise ValueError(f"Session '{session_name}' not found")
-            window_name = tmux_client.create_window(session_name, window_name, terminal_id)
+            window_name = tmux_client.create_window(
+                session_name, window_name, terminal_id, start_directory=cwd
+            )
 
         # Save terminal metadata to database
-        db_create_terminal(terminal_id, session_name, window_name, provider, agent_profile)
+        db_create_terminal(terminal_id, session_name, window_name, provider, agent_profile, cwd)
 
         # Initialize provider
         provider_instance = provider_manager.create_provider(
@@ -120,6 +134,7 @@ def get_terminal(terminal_id: str) -> Dict:
             "provider": metadata["provider"],
             "session_name": metadata["tmux_session"],
             "agent_profile": metadata["agent_profile"],
+            "cwd": metadata["cwd"],
             "status": status,
             "last_active": metadata["last_active"],
         }

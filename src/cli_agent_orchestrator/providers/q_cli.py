@@ -2,7 +2,7 @@
 
 import logging
 import re
-from typing import List, Optional
+from typing import Optional
 
 from cli_agent_orchestrator.clients.tmux import tmux_client
 from cli_agent_orchestrator.models.terminal import TerminalStatus
@@ -23,6 +23,15 @@ IDLE_PROMPT_PATTERN_LOG = r"\x1b\[38;5;13m>\s*\x1b\[39m"
 # Error indicators
 ERROR_INDICATORS = ["Amazon Q is having trouble responding right now"]
 
+# CLI installation instructions
+Q_CLI_INSTALL_INSTRUCTIONS = """Amazon Q CLI can be installed via:
+
+macOS (Homebrew):
+    brew install amazon-q
+
+For other platforms and more information, visit:
+https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line-getting-started-installing.html"""
+
 
 class QCliProvider(BaseProvider):
     """Provider for Q CLI tool integration."""
@@ -41,8 +50,19 @@ class QCliProvider(BaseProvider):
             r"Allow this action\?.*\[.*y.*\/.*n.*\/.*t.*\]:\s*" + self._idle_prompt_pattern
         )
 
+    def get_cli_command(self) -> str:
+        """Return the Q CLI command name."""
+        return "q"
+
+    def get_install_instructions(self) -> str:
+        """Return Q CLI installation instructions."""
+        return Q_CLI_INSTALL_INSTRUCTIONS
+
     def initialize(self) -> bool:
         """Initialize Q CLI provider by starting q chat command."""
+        # Validate CLI is installed before attempting to start
+        self.validate_cli_installed()
+
         # Wait for shell to be ready first
         if not wait_for_shell(tmux_client, self.session_name, self.window_name, timeout=10.0):
             raise TimeoutError("Shell initialization timed out after 10 seconds")

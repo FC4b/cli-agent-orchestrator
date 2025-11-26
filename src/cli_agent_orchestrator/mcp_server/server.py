@@ -35,6 +35,9 @@ mcp = FastMCP(
 def _create_terminal(agent_profile: str) -> Tuple[str, str]:
     """Create a new terminal with the specified agent profile.
 
+    The new terminal inherits the working directory (cwd) from the parent terminal,
+    ensuring all agents in a session work in the same project directory.
+
     Args:
         agent_profile: Agent profile for the terminal
 
@@ -45,6 +48,7 @@ def _create_terminal(agent_profile: str) -> Tuple[str, str]:
         Exception: If terminal creation fails
     """
     provider = DEFAULT_PROVIDER
+    cwd = None
 
     # Get current terminal ID from environment
     current_terminal_id = os.environ.get("CAO_TERMINAL_ID")
@@ -56,11 +60,16 @@ def _create_terminal(agent_profile: str) -> Tuple[str, str]:
 
         provider = terminal_metadata["provider"]
         session_name = terminal_metadata["session_name"]
+        cwd = terminal_metadata.get("cwd")  # Inherit cwd from parent terminal
 
-        # Create new terminal in existing session
+        # Create new terminal in existing session with same cwd
+        params = {"provider": provider, "agent_profile": agent_profile}
+        if cwd:
+            params["cwd"] = cwd
+
         response = requests.post(
             f"{API_BASE_URL}/sessions/{session_name}/terminals",
-            params={"provider": provider, "agent_profile": agent_profile},
+            params=params,
         )
         response.raise_for_status()
         terminal = response.json()

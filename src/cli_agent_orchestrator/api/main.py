@@ -112,15 +112,26 @@ async def health_check():
 
 @app.post("/sessions", response_model=Terminal, status_code=status.HTTP_201_CREATED)
 async def create_session(
-    provider: str, agent_profile: str, session_name: Optional[str] = None
+    provider: str,
+    agent_profile: str,
+    session_name: Optional[str] = None,
+    cwd: Optional[str] = None,
 ) -> Terminal:
-    """Create a new session with exactly one terminal."""
+    """Create a new session with exactly one terminal.
+
+    Args:
+        provider: Provider type (e.g., 'q_cli', 'claude_code', 'codex_cli')
+        agent_profile: Agent profile name
+        session_name: Optional session name (auto-generated if not provided)
+        cwd: Working directory for the session (e.g., VS Code workspace path)
+    """
     try:
         result = terminal_service.create_terminal(
             provider=provider,
             agent_profile=agent_profile,
             session_name=session_name,
             new_session=True,
+            cwd=cwd,
         )
         return result
 
@@ -177,15 +188,26 @@ async def delete_session(session_name: str) -> Dict:
     status_code=status.HTTP_201_CREATED,
 )
 async def create_terminal_in_session(
-    session_name: str, provider: str, agent_profile: str
+    session_name: str,
+    provider: str,
+    agent_profile: str,
+    cwd: Optional[str] = None,
 ) -> Terminal:
-    """Create additional terminal in existing session."""
+    """Create additional terminal in existing session.
+
+    Args:
+        session_name: Name of the existing session
+        provider: Provider type (e.g., 'q_cli', 'claude_code', 'codex_cli')
+        agent_profile: Agent profile name
+        cwd: Working directory for the terminal (e.g., VS Code workspace path)
+    """
     try:
         result = terminal_service.create_terminal(
             provider=provider,
             agent_profile=agent_profile,
             session_name=session_name,
             new_session=False,
+            cwd=cwd,
         )
         return result
     except ValueError as e:

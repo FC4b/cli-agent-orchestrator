@@ -23,6 +23,13 @@ IDLE_PROMPT_PATTERN_LOG = r"\x1b\[38;5;13m>\s*\x1b\[39m"
 # Error indicators
 ERROR_INDICATORS = ["Kiro is having trouble responding right now"]
 
+# CLI installation instructions
+KIRO_CLI_INSTALL_INSTRUCTIONS = """Kiro CLI can be installed via npm:
+
+    npm install -g @anthropic-ai/kiro-cli
+
+For more information, visit: https://kiro.dev/docs/cli"""
+
 
 class KiroCliProvider(BaseProvider):
     """Provider for Kiro CLI tool integration."""
@@ -40,8 +47,19 @@ class KiroCliProvider(BaseProvider):
             r"Allow this action\?.*\[.*y.*\/.*n.*\/.*t.*\]:\s*" + self._idle_prompt_pattern
         )
 
+    def get_cli_command(self) -> str:
+        """Return the Kiro CLI command name."""
+        return "kiro-cli"
+
+    def get_install_instructions(self) -> str:
+        """Return Kiro CLI installation instructions."""
+        return KIRO_CLI_INSTALL_INSTRUCTIONS
+
     def initialize(self) -> bool:
         """Initialize Kiro CLI provider by starting kiro-cli chat command."""
+        # Validate CLI is installed before attempting to start
+        self.validate_cli_installed()
+
         # Wait for shell to be ready first
         if not wait_for_shell(tmux_client, self.session_name, self.window_name, timeout=10.0):
             raise TimeoutError("Shell initialization timed out after 10 seconds")
