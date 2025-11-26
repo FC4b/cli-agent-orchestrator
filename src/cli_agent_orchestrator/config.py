@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from cli_agent_orchestrator.models.provider import ProviderType
 
@@ -14,8 +14,12 @@ CONFIG_DIR = Path.home() / ".aws" / "cli-agent-orchestrator"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 # Default configuration
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG: Dict[str, Any] = {
     "default_provider": ProviderType.Q_CLI.value,
+    # Agent-specific provider overrides
+    "agent_providers": {
+        # Example: "frontend_developer": "claude_code"
+    },
 }
 
 
@@ -89,4 +93,65 @@ def get_config() -> Dict[str, Any]:
 def get_config_path() -> Path:
     """Get the config file path."""
     return CONFIG_FILE
+
+
+def get_provider_for_agent(agent_profile: str) -> str:
+    """Get the provider for a specific agent (falls back to default).
+
+    Args:
+        agent_profile: Agent profile name (e.g., 'frontend_developer')
+
+    Returns:
+        Provider name for this agent
+    """
+    config = _load_config()
+    agent_providers = config.get("agent_providers", {})
+
+    # Check for agent-specific override
+    if agent_profile in agent_providers:
+        provider = agent_providers[agent_profile]
+        valid_providers = [p.value for p in ProviderType]
+        if provider in valid_providers:
+            return provider
+
+    # Fall back to default
+    return get_default_provider()
+
+
+def set_provider_for_agent(agent_profile: str, provider: str) -> bool:
+    """Set the provider for a specific agent.
+
+    Args:
+        agent_profile: Agent profile name
+        provider: Provider name
+
+    Returns:
+        True if successful
+    """
+    valid_providers = [p.value for p in ProviderType]
+    if provider not in valid_providers:
+        raise ValueError(f"Invalid provider '{provider}'. Valid: {', '.join(valid_providers)}")
+
+    config = _load_config()
+    if "agent_providers" not in config:
+        config["agent_providers"] = {}
+
+    config["agent_providers"][agent_profile] = provider
+    return _save_config(config)
+
+
+def remove_provider_for_agent(agent_profile: str) -> bool:
+    """Remove agent-specific provider (will use default).
+
+    Args:
+        agent_profile: Agent profile name
+
+    Returns:
+        True if successful
+    """
+    config = _load_config()
+    if "agent_providers" in config and agent_profile in config["agent_providers"]:
+        del config["agent_providers"][agent_profile]
+        return _save_config(config)
+    return True
 

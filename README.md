@@ -55,9 +55,15 @@ CAO supports installing agents from multiple sources:
 **1. Install built-in agents (bundled with CAO):**
 
 ```bash
+# Core agents
 cao install code_supervisor
 cao install developer
 cao install reviewer
+
+# Specialized developers
+cao install frontend_developer   # Web UI, React, Vue, CSS
+cao install backend_developer    # APIs, databases, cloud
+cao install mobile_developer     # Flutter, Swift, Kotlin
 ```
 
 **2. Install from a local file:**
@@ -98,6 +104,17 @@ cao install developer --provider kiro_cli
 | `gemini_cli` | Gemini CLI | Google's Gemini CLI |
 
 Note: The `claude_code`, `codex_cli`, and `gemini_cli` providers do not require agent installation - they use their native configuration systems (CLAUDE.md, AGENTS.md, etc.).
+
+**Built-in Agent Profiles:**
+
+| Agent | Specialization |
+|-------|---------------|
+| `code_supervisor` | Orchestrates tasks and delegates to specialists |
+| `developer` | General-purpose development |
+| `reviewer` | Code review and quality assurance |
+| `frontend_developer` | Web UI, React, Vue, Angular, CSS, accessibility |
+| `backend_developer` | APIs, databases, cloud, security, microservices |
+| `mobile_developer` | Flutter, Swift, Kotlin, React Native |
 
 **Check Available Providers:**
 
@@ -154,6 +171,80 @@ cao launch --agents developer -C ~/projects/my-app
 ```
 
 **Note:** CAO validates that the required CLI tool is installed before launching. If the CLI is not found, you'll receive helpful installation instructions.
+
+### Configuration
+
+CAO stores configuration in `~/.aws/cli-agent-orchestrator/config.json`.
+
+**Set Default Provider:**
+
+```bash
+# View current configuration
+cao config show
+
+# Set default provider for all agents
+cao config set-provider claude_code
+
+# Set provider for specific agent (overrides default)
+cao config set-provider claude_code --agent frontend_developer
+cao config set-provider codex_cli --agent backend_developer
+cao config set-provider gemini_cli --agent mobile_developer
+
+# Reset agent to use default provider
+cao config reset-agent frontend_developer
+```
+
+### Agent Teams (cao.config.json)
+
+Define your project's agent team in a `cao.config.json` file:
+
+```bash
+# Create cao.config.json in your project
+cao team init
+
+# View current config
+cao team show
+
+# Start all agents defined in config
+cao team start
+```
+
+**Example cao.config.json:**
+
+```json
+{
+  "name": "my-project",
+  "agents": [
+    { "agent": "code_supervisor", "provider": "claude_code" },
+    { "agent": "frontend_developer", "provider": "claude_code" },
+    { "agent": "backend_developer", "provider": "codex_cli" },
+    { "agent": "reviewer", "provider": "claude_code" }
+  ]
+}
+```
+
+**Simple format (uses default provider):**
+
+```json
+{
+  "name": "my-project",
+  "default_provider": "claude_code",
+  "agents": ["code_supervisor", "developer", "reviewer"]
+}
+```
+
+**Start team from any directory:**
+
+```bash
+# Start team in current directory (reads cao.config.json)
+cao team start
+
+# Start team in specific project
+cao team start --cwd /path/to/project
+
+# Start in headless mode (detached)
+cao team start --headless
+```
 
 Shutdown sessions:
 
@@ -373,6 +464,30 @@ cao flow run daily-standup
 # Remove a flow
 cao flow remove daily-standup
 ```
+
+## CLI Reference
+
+| Command | Description |
+|---------|-------------|
+| `cao launch --agents <name>` | Launch single agent |
+| `cao launch --agents <name> --cwd <path>` | Launch agent in specific directory |
+| `cao launch --agents <name> --provider <provider>` | Launch with specific provider |
+| `cao team init` | Create cao.config.json in current directory |
+| `cao team show` | Show project's agent configuration |
+| `cao team start` | Start all agents from cao.config.json |
+| `cao team start --cwd <path>` | Start team in specific directory |
+| `cao install <agent>` | Install built-in agent profile |
+| `cao install <file.md>` | Install agent from file |
+| `cao providers` | List installed CLI tools |
+| `cao config show` | Show global configuration |
+| `cao config set-provider <provider>` | Set default provider |
+| `cao config set-provider <provider> --agent <name>` | Set provider for specific agent |
+| `cao shutdown --all` | Shutdown all sessions |
+| `cao shutdown --session <name>` | Shutdown specific session |
+| `cao flow add <file.md>` | Add scheduled flow |
+| `cao flow list` | List all flows |
+| `cao flow run <name>` | Manually run flow |
+| `cao-server` | Start CAO server |
 
 ## Security
 
