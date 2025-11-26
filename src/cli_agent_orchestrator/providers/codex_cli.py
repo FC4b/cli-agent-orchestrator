@@ -85,13 +85,16 @@ class CodexCliProvider(BaseProvider):
         """Return Codex CLI installation instructions."""
         return CODEX_CLI_INSTALL_INSTRUCTIONS
 
-    def initialize(self) -> bool:
+    def initialize(self, wait_for_ready: bool = True) -> bool:
         """Initialize Codex CLI provider by starting codex command.
 
         Codex CLI starts in interactive TUI mode by default.
         Agent profiles can be configured via AGENTS.md files in:
         - ~/.codex/AGENTS.md (global)
         - Repository root AGENTS.md (project-specific)
+
+        Args:
+            wait_for_ready: If True, block until Codex CLI is ready. If False, return immediately.
         """
         # Validate CLI is installed before attempting to start
         self.validate_cli_installed()
@@ -106,8 +109,9 @@ class CodexCliProvider(BaseProvider):
 
         tmux_client.send_keys(self.session_name, self.window_name, command)
 
-        if not wait_until_status(self, TerminalStatus.IDLE, timeout=30.0):
-            raise TimeoutError("Codex CLI initialization timed out after 30 seconds")
+        if wait_for_ready:
+            if not wait_until_status(self, TerminalStatus.IDLE, timeout=30.0, polling_interval=0.5):
+                raise TimeoutError("Codex CLI initialization timed out after 30 seconds")
 
         self._initialized = True
         return True

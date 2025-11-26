@@ -6,6 +6,7 @@ import click
 
 from cli_agent_orchestrator.clients.database import init_db
 from cli_agent_orchestrator.services import flow_service
+from cli_agent_orchestrator.utils.server import ensure_server_running
 
 
 @click.group()
@@ -93,6 +94,12 @@ def enable(name):
 def run(name):
     """Manually run a flow."""
     try:
+        # Ensure cao-server is running
+        if not ensure_server_running():
+            raise click.ClickException(
+                "Failed to start cao-server. Please start it manually with 'cao-server'"
+            )
+
         executed = flow_service.execute_flow(name)
         if executed:
             click.echo(f"Flow '{name}' executed successfully")

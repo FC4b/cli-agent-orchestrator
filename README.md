@@ -42,9 +42,20 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 3. Install CLI Agent Orchestrator:
 
+**From GitHub:**
+
 ```bash
 uv tool install git+https://github.com/awslabs/cli-agent-orchestrator.git@main --upgrade
 ```
+
+**From local development copy:**
+
+```bash
+cd /path/to/cli-agent-orchestrator
+uv tool install -e .
+```
+
+The `-e` flag installs in editable mode, allowing you to modify the code and see changes immediately without reinstalling.
 
 ## Quick Start
 
@@ -131,13 +142,7 @@ For details on creating custom agent profiles, see [docs/agent-profile.md](docs/
 
 ### Launching Agents
 
-Start the cao server:
-
-```bash
-cao-server
-```
-
-In another terminal, launch a terminal with an agent profile:
+Launch a terminal with an agent profile (the server starts automatically if not running):
 
 ```bash
 cao launch --agents code_supervisor
@@ -150,6 +155,12 @@ cao launch --agents code_supervisor --provider codex_cli
 
 # Launch with Gemini CLI
 cao launch --agents code_supervisor --provider gemini_cli
+```
+
+**Note:** The `cao-server` starts automatically in the background when you run `cao launch`, `cao team start`, or `cao flow run`. You can also start it manually if needed:
+
+```bash
+cao-server
 ```
 
 **Working Directory (VS Code Workspaces):**
@@ -396,27 +407,28 @@ cao install developer
 The example flow asks a simple world trivia question every morning at 7:30 AM.
 
 ```bash
-# 1. Start the cao server
-cao-server
-
-# 2. In another terminal, add a flow
+# 1. Add a flow (server starts automatically if needed)
 cao flow add examples/flow/morning-trivia.md
 
-# 3. List flows to see schedule and status
+# 2. List flows to see schedule and status
 cao flow list
 
-# 4. Manually run a flow (optional - for testing)
+# 3. Manually run a flow (optional - for testing)
 cao flow run morning-trivia
 
-# 5. View flow execution (after it runs)
+# 4. View flow execution (after it runs)
 tmux list-sessions
 tmux attach -t <session-name>
 
-# 6. Cleanup session when done
+# 5. Cleanup session when done
 cao shutdown --session <session-name>
 ```
 
-**IMPORTANT:** The `cao-server` must be running for flows to execute on schedule.
+**Note:** The `cao-server` starts automatically when needed. For scheduled flows to execute, keep the server running. You can start it manually in a separate terminal:
+
+```bash
+cao-server
+```
 
 ### Example 1: Simple Scheduled Task
 

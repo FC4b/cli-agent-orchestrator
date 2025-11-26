@@ -81,8 +81,12 @@ class ClaudeCodeProvider(BaseProvider):
 
         return command_parts
 
-    def initialize(self) -> bool:
-        """Initialize Claude Code provider by starting claude command."""
+    def initialize(self, wait_for_ready: bool = True) -> bool:
+        """Initialize Claude Code provider by starting claude command.
+
+        Args:
+            wait_for_ready: If True, block until Claude Code is ready. If False, return immediately.
+        """
         # Validate CLI is installed before attempting to start
         self.validate_cli_installed()
 
@@ -93,9 +97,10 @@ class ClaudeCodeProvider(BaseProvider):
         # Send Claude Code command using tmux client
         tmux_client.send_keys(self.session_name, self.window_name, command)
 
-        # Wait for Claude Code prompt to be ready
-        if not wait_until_status(self, TerminalStatus.IDLE, timeout=30.0, polling_interval=1.0):
-            raise TimeoutError("Claude Code initialization timed out after 30 seconds")
+        if wait_for_ready:
+            # Wait for Claude Code prompt to be ready
+            if not wait_until_status(self, TerminalStatus.IDLE, timeout=30.0, polling_interval=0.5):
+                raise TimeoutError("Claude Code initialization timed out after 30 seconds")
 
         self._initialized = True
         return True

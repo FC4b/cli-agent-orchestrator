@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run python:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)",
+      "Bash(kill:*)",
+      "Bash(python -m cli_agent_orchestrator.api.main:*)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(tee:*)",
+      "Bash(tmux:*)",
+      "Bash(timeout 5 codex --help:*)",
+      "Bash(echo:*)",
+      "Bash(codex --version:*)",
+      "mcp__cao-mcp-server__handoff"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

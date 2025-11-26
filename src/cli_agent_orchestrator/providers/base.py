@@ -49,13 +49,30 @@ class BaseProvider(ABC):
         validate_cli_or_raise(self.get_cli_command(), self.get_install_instructions())
 
     @abstractmethod
-    def initialize(self) -> bool:
+    def initialize(self, wait_for_ready: bool = True) -> bool:
         """Initialize the provider (e.g., start CLI tool, send setup commands).
+
+        Args:
+            wait_for_ready: If True, block until provider is ready. If False, return immediately.
 
         Returns:
             bool: True if initialization successful, False otherwise
         """
         pass
+
+    def wait_for_ready(self, timeout: float = 30.0, polling_interval: float = 0.5) -> bool:
+        """Wait until the provider is ready (IDLE status).
+
+        Args:
+            timeout: Maximum time to wait in seconds
+            polling_interval: Time between status checks
+
+        Returns:
+            bool: True if provider became ready, False if timeout
+        """
+        from cli_agent_orchestrator.utils.terminal import wait_until_status
+
+        return wait_until_status(self, TerminalStatus.IDLE, timeout=timeout, polling_interval=polling_interval)
 
     @abstractmethod
     def get_status(self, tail_lines: Optional[int] = None) -> TerminalStatus:

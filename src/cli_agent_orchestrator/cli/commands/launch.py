@@ -7,6 +7,7 @@ import click
 import requests
 
 from cli_agent_orchestrator.constants import PROVIDERS, SERVER_HOST, SERVER_PORT, get_default_provider
+from cli_agent_orchestrator.utils.server import ensure_server_running
 
 
 @click.command()
@@ -40,6 +41,12 @@ def launch(agents, session_name, headless, provider, cwd):
         cao launch --agents developer --cwd .
     """
     try:
+        # Ensure cao-server is running
+        if not ensure_server_running():
+            raise click.ClickException(
+                "Failed to start cao-server. Please start it manually with 'cao-server'"
+            )
+
         # Use default provider from config if not specified
         if provider is None:
             provider = get_default_provider()

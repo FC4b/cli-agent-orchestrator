@@ -11,8 +11,12 @@ from cli_agent_orchestrator.cli.commands.providers import providers
 from cli_agent_orchestrator.cli.commands.shutdown import shutdown
 from cli_agent_orchestrator.cli.commands.team import team
 
+# Version info from pyproject.toml
+__version__ = "0.1.2"
 
-@click.group()
+
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.version_option(version=__version__, prog_name="cao")
 def cli():
     """CLI Agent Orchestrator."""
 

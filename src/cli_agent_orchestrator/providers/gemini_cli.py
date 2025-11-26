@@ -86,11 +86,14 @@ class GeminiCliProvider(BaseProvider):
         """Return Gemini CLI installation instructions."""
         return GEMINI_CLI_INSTALL_INSTRUCTIONS
 
-    def initialize(self) -> bool:
+    def initialize(self, wait_for_ready: bool = True) -> bool:
         """Initialize Gemini CLI provider by starting gemini command.
 
         Gemini CLI starts in interactive REPL mode by default.
         Configuration can be done via settings and MCP server configuration.
+
+        Args:
+            wait_for_ready: If True, block until Gemini CLI is ready. If False, return immediately.
         """
         # Validate CLI is installed before attempting to start
         self.validate_cli_installed()
@@ -105,8 +108,9 @@ class GeminiCliProvider(BaseProvider):
 
         tmux_client.send_keys(self.session_name, self.window_name, command)
 
-        if not wait_until_status(self, TerminalStatus.IDLE, timeout=30.0):
-            raise TimeoutError("Gemini CLI initialization timed out after 30 seconds")
+        if wait_for_ready:
+            if not wait_until_status(self, TerminalStatus.IDLE, timeout=30.0, polling_interval=0.5):
+                raise TimeoutError("Gemini CLI initialization timed out after 30 seconds")
 
         self._initialized = True
         return True

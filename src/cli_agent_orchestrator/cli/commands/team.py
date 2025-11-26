@@ -3,12 +3,14 @@
 import json
 import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import click
 import requests
 
 from cli_agent_orchestrator.constants import PROVIDERS, SERVER_HOST, SERVER_PORT
+from cli_agent_orchestrator.utils.server import ensure_server_running
 from cli_agent_orchestrator.project_config import (
     PROJECT_CONFIG_FILE,
     create_default_config,
@@ -176,10 +178,28 @@ def start_team(cwd: str, workspace: str, session_name: str, headless: bool):
     click.echo(f"{click.style('Agents:', bold=True)} {len(agents)}")
     click.echo("-" * 50)
 
+    # Ensure cao-server is running
+    if not ensure_server_running():
+        raise click.ClickException(
+            "Failed to start cao-server. Please start it manually with 'cao-server'"
+        )
+
     created_session = None
     terminals = []
 
+    def wait_for_terminal(terminal_id: str, agent_name: str) -> tuple[str, bool]:
+        """Wait for a terminal to become ready."""
+        try:
+            url = f"http://{SERVER_HOST}:{SERVER_PORT}/terminals/{terminal_id}/wait"
+            response = requests.post(url, params={"timeout": 30.0})
+            response.raise_for_status()
+            return (agent_name, True)
+        except Exception:
+            return (agent_name, False)
+
     try:
+        # Phase 1: Create all terminals quickly (non-blocking)
+        click.echo(f"\n{click.style('Creating terminals...', fg='cyan')}")
         for i, agent_config in enumerate(agents):
             agent = agent_config["agent"]
             provider = agent_config["provider"]
@@ -191,12 +211,13 @@ def start_team(cwd: str, workspace: str, session_name: str, headless: bool):
                 )
 
             if i == 0:
-                # First agent - create new session
+                # First agent - create new session (non-blocking)
                 url = f"http://{SERVER_HOST}:{SERVER_PORT}/sessions"
                 params = {
                     "provider": provider,
                     "agent_profile": agent,
                     "cwd": working_dir,
+                    "wait_for_ready": "false",  # Don't wait
                 }
                 if session_name:
                     params["session_name"] = session_name
@@ -206,23 +227,38 @@ def start_team(cwd: str, workspace: str, session_name: str, headless: bool):
                 terminal = response.json()
                 created_session = terminal["session_name"]
                 terminals.append(terminal)
-                click.echo(
-                    f"  ✓ {agent} ({provider}) - {click.style('session created', fg='green')}"
-                )
+                click.echo(f"  ⏳ {agent} ({provider}) - session created")
             else:
-                # Subsequent agents - add to existing session
+                # Subsequent agents - add to existing session (non-blocking)
                 url = f"http://{SERVER_HOST}:{SERVER_PORT}/sessions/{created_session}/terminals"
                 params = {
                     "provider": provider,
                     "agent_profile": agent,
                     "cwd": working_dir,
+                    "wait_for_ready": "false",  # Don't wait
                 }
 
                 response = requests.post(url, params=params)
                 response.raise_for_status()
                 terminal = response.json()
                 terminals.append(terminal)
-                click.echo(f"  ✓ {agent} ({provider})")
+                click.echo(f"  ⏳ {agent} ({provider})")
+
+        # Phase 2: Wait for all terminals to be ready in parallel
+        click.echo(f"\n{click.style('Waiting for agents to initialize...', fg='cyan')}")
+
+        with ThreadPoolExecutor(max_workers=len(terminals)) as executor:
+            futures = {
+                executor.submit(wait_for_terminal, t["id"], agents[i]["agent"]): i
+                for i, t in enumerate(terminals)
+            }
+
+            for future in as_completed(futures):
+                agent_name, success = future.result()
+                if success:
+                    click.echo(f"  ✓ {agent_name} {click.style('ready', fg='green')}")
+                else:
+                    click.echo(f"  ⚠ {agent_name} {click.style('timeout (may still be loading)', fg='yellow')}")
 
         click.echo("-" * 50)
         click.echo(f"\n{click.style('Session:', fg='green', bold=True)} {created_session}")

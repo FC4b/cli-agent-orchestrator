@@ -38,6 +38,7 @@ def create_terminal(
     session_name: Optional[str] = None,
     new_session: bool = False,
     cwd: Optional[str] = None,
+    wait_for_ready: bool = True,
 ) -> Terminal:
     """Create terminal, optionally creating new session with it.
 
@@ -47,6 +48,7 @@ def create_terminal(
         session_name: Optional session name (auto-generated if not provided)
         new_session: Whether to create a new session
         cwd: Working directory for the terminal (default: current directory)
+        wait_for_ready: If True, block until provider is ready. If False, return immediately.
     """
     try:
         terminal_id = generate_terminal_id()
@@ -79,11 +81,11 @@ def create_terminal(
         # Save terminal metadata to database
         db_create_terminal(terminal_id, session_name, window_name, provider, agent_profile, cwd)
 
-        # Initialize provider
+        # Initialize provider (optionally non-blocking)
         provider_instance = provider_manager.create_provider(
             provider, terminal_id, session_name, window_name, agent_profile
         )
-        provider_instance.initialize()
+        provider_instance.initialize(wait_for_ready=wait_for_ready)
 
         # Create log file and start pipe-pane
         log_path = TERMINAL_LOG_DIR / f"{terminal_id}.log"
@@ -96,12 +98,12 @@ def create_terminal(
             provider=ProviderType(provider),
             session_name=session_name,
             agent_profile=agent_profile,
-            status=TerminalStatus.IDLE,
+            status=TerminalStatus.IDLE if wait_for_ready else TerminalStatus.PROCESSING,
             last_active=datetime.now(),
         )
 
         logger.info(
-            f"Created terminal: {terminal_id} in session: {session_name} (new_session={new_session})"
+            f"Created terminal: {terminal_id} in session: {session_name} (new_session={new_session}, wait_for_ready={wait_for_ready})"
         )
         return terminal
 
@@ -113,6 +115,24 @@ def create_terminal(
             except:
                 pass
         raise
+
+
+def wait_for_terminal_ready(terminal_id: str, timeout: float = 30.0, polling_interval: float = 0.5) -> bool:
+    """Wait for a terminal's provider to become ready.
+
+    Args:
+        terminal_id: The terminal ID to wait for
+        timeout: Maximum time to wait in seconds
+        polling_interval: Time between status checks
+
+    Returns:
+        bool: True if provider became ready, False if timeout
+    """
+    provider = provider_manager.get_provider(terminal_id)
+    if provider is None:
+        raise ValueError(f"Provider not found for terminal {terminal_id}")
+
+    return provider.wait_for_ready(timeout=timeout, polling_interval=polling_interval)
 
 
 def get_terminal(terminal_id: str) -> Dict:

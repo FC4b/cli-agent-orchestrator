@@ -58,8 +58,12 @@ class QCliProvider(BaseProvider):
         """Return Q CLI installation instructions."""
         return Q_CLI_INSTALL_INSTRUCTIONS
 
-    def initialize(self) -> bool:
-        """Initialize Q CLI provider by starting q chat command."""
+    def initialize(self, wait_for_ready: bool = True) -> bool:
+        """Initialize Q CLI provider by starting q chat command.
+
+        Args:
+            wait_for_ready: If True, block until Q CLI is ready. If False, return immediately.
+        """
         # Validate CLI is installed before attempting to start
         self.validate_cli_installed()
 
@@ -70,8 +74,9 @@ class QCliProvider(BaseProvider):
         command = f"q chat --agent {self._agent_profile}"
         tmux_client.send_keys(self.session_name, self.window_name, command)
 
-        if not wait_until_status(self, TerminalStatus.IDLE, timeout=30.0):
-            raise TimeoutError("Q CLI initialization timed out after 30 seconds")
+        if wait_for_ready:
+            if not wait_until_status(self, TerminalStatus.IDLE, timeout=30.0, polling_interval=0.5):
+                raise TimeoutError("Q CLI initialization timed out after 30 seconds")
 
         self._initialized = True
         return True

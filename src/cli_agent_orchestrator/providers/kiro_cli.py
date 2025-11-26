@@ -55,8 +55,12 @@ class KiroCliProvider(BaseProvider):
         """Return Kiro CLI installation instructions."""
         return KIRO_CLI_INSTALL_INSTRUCTIONS
 
-    def initialize(self) -> bool:
-        """Initialize Kiro CLI provider by starting kiro-cli chat command."""
+    def initialize(self, wait_for_ready: bool = True) -> bool:
+        """Initialize Kiro CLI provider by starting kiro-cli chat command.
+
+        Args:
+            wait_for_ready: If True, block until Kiro CLI is ready. If False, return immediately.
+        """
         # Validate CLI is installed before attempting to start
         self.validate_cli_installed()
 
@@ -67,8 +71,9 @@ class KiroCliProvider(BaseProvider):
         command = f"kiro-cli chat --agent {self._agent_profile}"
         tmux_client.send_keys(self.session_name, self.window_name, command)
 
-        if not wait_until_status(self, TerminalStatus.IDLE, timeout=30.0):
-            raise TimeoutError("Kiro CLI initialization timed out after 30 seconds")
+        if wait_for_ready:
+            if not wait_until_status(self, TerminalStatus.IDLE, timeout=30.0, polling_interval=0.5):
+                raise TimeoutError("Kiro CLI initialization timed out after 30 seconds")
 
         self._initialized = True
         return True

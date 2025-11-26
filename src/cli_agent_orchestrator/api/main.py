@@ -116,6 +116,7 @@ async def create_session(
     agent_profile: str,
     session_name: Optional[str] = None,
     cwd: Optional[str] = None,
+    wait_for_ready: bool = True,
 ) -> Terminal:
     """Create a new session with exactly one terminal.
 
@@ -124,6 +125,7 @@ async def create_session(
         agent_profile: Agent profile name
         session_name: Optional session name (auto-generated if not provided)
         cwd: Working directory for the session (e.g., VS Code workspace path)
+        wait_for_ready: If True, block until provider is ready. If False, return immediately.
     """
     try:
         result = terminal_service.create_terminal(
@@ -132,6 +134,7 @@ async def create_session(
             session_name=session_name,
             new_session=True,
             cwd=cwd,
+            wait_for_ready=wait_for_ready,
         )
         return result
 
@@ -192,6 +195,7 @@ async def create_terminal_in_session(
     provider: str,
     agent_profile: str,
     cwd: Optional[str] = None,
+    wait_for_ready: bool = True,
 ) -> Terminal:
     """Create additional terminal in existing session.
 
@@ -200,6 +204,7 @@ async def create_terminal_in_session(
         provider: Provider type (e.g., 'q_cli', 'claude_code', 'codex_cli')
         agent_profile: Agent profile name
         cwd: Working directory for the terminal (e.g., VS Code workspace path)
+        wait_for_ready: If True, block until provider is ready. If False, return immediately.
     """
     try:
         result = terminal_service.create_terminal(
@@ -208,6 +213,7 @@ async def create_terminal_in_session(
             session_name=session_name,
             new_session=False,
             cwd=cwd,
+            wait_for_ready=wait_for_ready,
         )
         return result
     except ValueError as e:
@@ -308,6 +314,29 @@ async def delete_terminal(terminal_id: TerminalId) -> Dict:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete terminal: {str(e)}",
+        )
+
+
+@app.post("/terminals/{terminal_id}/wait")
+async def wait_for_terminal(
+    terminal_id: TerminalId,
+    timeout: float = 30.0,
+) -> Dict:
+    """Wait for terminal's provider to become ready.
+
+    Args:
+        terminal_id: The terminal ID to wait for
+        timeout: Maximum time to wait in seconds (default: 30)
+    """
+    try:
+        success = terminal_service.wait_for_terminal_ready(terminal_id, timeout=timeout)
+        return {"success": success, "terminal_id": terminal_id}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to wait for terminal: {str(e)}",
         )
 
 
