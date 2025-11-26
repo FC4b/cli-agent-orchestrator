@@ -9,7 +9,24 @@ SESSION_PREFIX = "cao-"
 
 # Available providers (derived from enum)
 PROVIDERS = [p.value for p in ProviderType]
-DEFAULT_PROVIDER = ProviderType.Q_CLI.value
+
+# Default provider fallback (used if config not available)
+# The actual default is loaded from config.py at runtime
+DEFAULT_PROVIDER_FALLBACK = ProviderType.Q_CLI.value
+
+
+def get_default_provider() -> str:
+    """Get default provider from user config (lazy import to avoid circular deps)."""
+    try:
+        from cli_agent_orchestrator.config import get_default_provider as _get_default
+
+        return _get_default()
+    except Exception:
+        return DEFAULT_PROVIDER_FALLBACK
+
+
+# For backward compatibility
+DEFAULT_PROVIDER = DEFAULT_PROVIDER_FALLBACK
 
 # Tmux capture limits
 TMUX_HISTORY_LINES = 200

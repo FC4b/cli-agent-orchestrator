@@ -6,7 +6,7 @@ import subprocess
 import click
 import requests
 
-from cli_agent_orchestrator.constants import DEFAULT_PROVIDER, PROVIDERS, SERVER_HOST, SERVER_PORT
+from cli_agent_orchestrator.constants import PROVIDERS, SERVER_HOST, SERVER_PORT, get_default_provider
 
 
 @click.command()
@@ -14,7 +14,7 @@ from cli_agent_orchestrator.constants import DEFAULT_PROVIDER, PROVIDERS, SERVER
 @click.option("--session-name", help="Name of the session (default: auto-generated)")
 @click.option("--headless", is_flag=True, help="Launch in detached mode")
 @click.option(
-    "--provider", default=DEFAULT_PROVIDER, help=f"Provider to use (default: {DEFAULT_PROVIDER})"
+    "--provider", default=None, help="Provider to use (default: from config)"
 )
 @click.option(
     "--cwd",
@@ -40,6 +40,10 @@ def launch(agents, session_name, headless, provider, cwd):
         cao launch --agents developer --cwd .
     """
     try:
+        # Use default provider from config if not specified
+        if provider is None:
+            provider = get_default_provider()
+
         # Validate provider
         if provider not in PROVIDERS:
             raise click.ClickException(
