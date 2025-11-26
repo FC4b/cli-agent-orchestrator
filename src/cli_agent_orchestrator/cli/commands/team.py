@@ -16,6 +16,11 @@ from cli_agent_orchestrator.project_config import (
     get_config_path_for_display,
     get_project_agents,
 )
+from cli_agent_orchestrator.utils.workspace import (
+    get_workspace_root,
+    parse_workspace_file,
+    write_workspace_context_file,
+)
 
 
 @click.group()
@@ -96,13 +101,22 @@ def show_config(cwd: str):
     type=click.Path(exists=True, file_okay=False, resolve_path=True),
     help="Working directory (default: current directory)",
 )
+@click.option(
+    "--workspace",
+    "-W",
+    type=click.Path(exists=True, dir_okay=False, resolve_path=True),
+    help="VS Code workspace file (.code-workspace) to use",
+)
 @click.option("--session-name", help="Name of the session (default: auto-generated)")
 @click.option("--headless", is_flag=True, help="Launch in detached mode (don't attach)")
-def start_team(cwd: str, session_name: str, headless: bool):
+def start_team(cwd: str, workspace: str, session_name: str, headless: bool):
     """Start all agents defined in cao.config.json.
 
     Reads the cao.config.json from the project directory and launches
     all configured agents in a single tmux session.
+
+    Supports VS Code workspace files (.code-workspace) for multi-folder projects.
+    When using --workspace, agents will be aware of all folders in the workspace.
 
     Examples:
 
@@ -112,10 +126,36 @@ def start_team(cwd: str, session_name: str, headless: bool):
         # Start team from specific project
         cao team start --cwd /path/to/my-project
 
+        # Start with VS Code workspace (multi-folder support)
+        cao team start --workspace ./my-project.code-workspace
+
         # Start with custom session name
         cao team start --session-name my-feature
     """
-    working_dir = cwd if cwd else os.getcwd()
+    # Handle VS Code workspace file
+    workspace_context_file = None
+    if workspace:
+        workspace_path = Path(workspace)
+        try:
+            workspace_data = parse_workspace_file(workspace_path)
+            working_dir = str(get_workspace_root(workspace_path))
+
+            # Create workspace context file for agents
+            workspace_context_file = write_workspace_context_file(
+                workspace_path, Path(working_dir)
+            )
+
+            click.echo(f"\n{click.style('Workspace:', bold=True)} {workspace_path}")
+            click.echo(f"{click.style('Folders:', bold=True)}")
+            for folder in workspace_data.folders:
+                resolved = folder.resolve(workspace_path.parent)
+                status = "✓" if resolved.exists() else "✗"
+                click.echo(f"  {status} {folder.name or resolved.name} ({resolved})")
+        except (FileNotFoundError, ValueError) as e:
+            raise click.ClickException(str(e))
+    else:
+        working_dir = cwd if cwd else os.getcwd()
+
     config_path = get_config_path_for_display(working_dir)
 
     if not config_path:

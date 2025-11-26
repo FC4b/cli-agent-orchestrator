@@ -246,6 +246,34 @@ cao team start --cwd /path/to/project
 cao team start --headless
 ```
 
+**VS Code Workspace Support (Multi-folder Projects):**
+
+CAO supports VS Code `.code-workspace` files for multi-folder projects:
+
+```bash
+# Start team with VS Code workspace
+cao team start --workspace ./my-project.code-workspace
+
+# Short form
+cao team start -W ./my-project.code-workspace
+```
+
+When using a workspace file:
+- Agents are aware of all folders in the workspace
+- The supervisor can intelligently assign frontend tasks to frontend folders
+- A `.cao-workspace-context.json` file is created with folder information
+
+Example `.code-workspace` file:
+```json
+{
+  "folders": [
+    { "path": "frontend", "name": "frontend" },
+    { "path": "backend", "name": "backend" },
+    { "path": "../shared-lib", "name": "shared" }
+  ]
+}
+```
+
 Shutdown sessions:
 
 ```bash
@@ -476,6 +504,7 @@ cao flow remove daily-standup
 | `cao team show` | Show project's agent configuration |
 | `cao team start` | Start all agents from cao.config.json |
 | `cao team start --cwd <path>` | Start team in specific directory |
+| `cao team start --workspace <file>` | Start team with VS Code workspace |
 | `cao install <agent>` | Install built-in agent profile |
 | `cao install <file.md>` | Install agent from file |
 | `cao providers` | List installed CLI tools |

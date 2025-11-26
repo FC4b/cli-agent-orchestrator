@@ -1,0 +1,11 @@
+{
+  "folders": [
+    { "path": "frontend", "name": "frontend" },
+    { "path": "backend", "name": "backend" },
+    { "path": "shared", "name": "shared-lib" }
+  ],
+  "settings": {
+    "editor.formatOnSave": true
+  }
+}
+

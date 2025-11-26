@@ -99,6 +99,26 @@ You to Sub-agent: "Use JWT authentication. The user confirmed this is for mobile
 - Track all created files and their locations
 - Share file paths between agents when needed
 
+### VS Code Workspace Awareness
+When working in a VS Code workspace (multi-folder project), check for `.cao-workspace-context.json` in the working directory. This file contains:
+```json
+{
+  "workspace_file": "/path/to/project.code-workspace",
+  "workspace_root": "/path/to/project",
+  "folders": [
+    { "path": "/path/to/frontend", "name": "frontend", "exists": true },
+    { "path": "/path/to/backend", "name": "backend", "exists": true },
+    { "path": "/path/to/shared", "name": "shared-lib", "exists": true }
+  ]
+}
+```
+
+When this file exists:
+- Assign `frontend_developer` tasks to files in the frontend folder
+- Assign `backend_developer` tasks to files in the backend folder
+- Share common code through the shared folder
+- Always reference absolute paths from the workspace context
+
 ### Task Descriptions in Files
 Before assigning a task:
 1. Write detailed task description to a file

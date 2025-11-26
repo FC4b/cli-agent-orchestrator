@@ -1,8 +1,8 @@
-# Example cao.config.json Files
+# Example Configuration Files
 
-Copy one of these to your project root as `cao.config.json` and customize as needed.
+Copy one of these to your project root and customize as needed.
 
-## Available Configurations
+## Team Configurations (cao.config.json)
 
 | File | Use Case |
 |------|----------|
@@ -11,6 +11,12 @@ Copy one of these to your project root as `cao.config.json` and customize as nee
 | `backend-only.json` | API services, microservices |
 | `solo-developer.json` | Simple projects, scripts, utilities |
 | `mixed-providers.json` | Use different CLI tools for different agents |
+
+## VS Code Workspace (.code-workspace)
+
+| File | Use Case |
+|------|----------|
+| `fullstack.code-workspace` | Multi-folder project (frontend/backend/shared) |
 
 ## Quick Start
 
@@ -56,10 +62,22 @@ cao team start
 | `q_cli` | Amazon Q Developer CLI |
 | `kiro_cli` | Kiro CLI |
 
+## Using VS Code Workspaces
+
+For multi-folder projects, use a `.code-workspace` file:
+
+```bash
+# Start team with workspace awareness
+cao team start --workspace fullstack.code-workspace
+```
+
+Agents will be aware of all folders and can intelligently assign tasks to the right locations.
+
 ## Tips
 
 1. **Always include `code_supervisor`** - It orchestrates the other agents
 2. **Always include `reviewer`** - All code should be reviewed
 3. **Match providers to strengths** - Some CLIs are better for certain tasks
 4. **Start simple** - Begin with `solo-developer.json` and add agents as needed
+5. **Multi-folder projects** - Use `.code-workspace` for frontend/backend separation
 
