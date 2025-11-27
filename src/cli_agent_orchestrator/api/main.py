@@ -225,6 +225,84 @@ async def create_terminal_in_session(
         )
 
 
+@app.post(
+    "/sessions/{session_name}/panes",
+    response_model=Terminal,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_pane_in_session(
+    session_name: str,
+    window_name: str,
+    provider: str,
+    agent_profile: str,
+    target_pane_id: Optional[str] = None,
+    vertical: bool = True,
+    cwd: Optional[str] = None,
+    wait_for_ready: bool = True,
+    size: Optional[int] = None,
+) -> Terminal:
+    """Create a terminal as a pane by splitting an existing pane.
+
+    Args:
+        session_name: Name of the existing session
+        window_name: Name of the window containing the pane to split
+        provider: Provider type (e.g., 'q_cli', 'claude_code', 'codex_cli')
+        agent_profile: Agent profile name
+        target_pane_id: Optional specific pane ID to split. If None, splits the active pane.
+        vertical: If True, split vertically (side by side). If False, split horizontally (top/bottom).
+        cwd: Working directory for the terminal (e.g., VS Code workspace path)
+        wait_for_ready: If True, block until provider is ready. If False, return immediately.
+        size: Optional percentage size for the new pane (1-100).
+    """
+    try:
+        result, pane_id = terminal_service.create_terminal_as_pane(
+            provider=provider,
+            agent_profile=agent_profile,
+            session_name=session_name,
+            window_name=window_name,
+            target_pane_id=target_pane_id,
+            vertical=vertical,
+            cwd=cwd,
+            wait_for_ready=wait_for_ready,
+            size=size,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create pane: {str(e)}",
+        )
+
+
+@app.post("/sessions/{session_name}/layout")
+async def apply_session_layout(
+    session_name: str,
+    window_name: str,
+    layout: str = "main-horizontal",
+    main_pane_percentage: int = 40,
+) -> Dict:
+    """Apply a tmux layout to a session window.
+
+    Args:
+        session_name: Name of the tmux session
+        window_name: Name of the window to apply layout to
+        layout: Layout name ('main-horizontal' for supervisor on top, 'main-vertical', 'tiled', etc.)
+        main_pane_percentage: Percentage size for the main pane (default: 40%)
+    """
+    try:
+        terminal_service.apply_team_layout(session_name, window_name, None)
+        return {"success": True, "layout": layout}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to apply layout: {str(e)}",
+        )
+
+
 @app.get("/sessions/{session_name}/terminals")
 async def list_terminals_in_session(session_name: str) -> List[Dict]:
     """List all terminals in a session."""

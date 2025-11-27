@@ -100,6 +100,7 @@ def create_terminal(
             agent_profile=agent_profile,
             status=TerminalStatus.IDLE if wait_for_ready else TerminalStatus.PROCESSING,
             last_active=datetime.now(),
+            pane_id=None,
         )
 
         logger.info(
@@ -114,6 +115,115 @@ def create_terminal(
                 tmux_client.kill_session(session_name)
             except:
                 pass
+        raise
+
+
+def create_terminal_as_pane(
+    provider: str,
+    agent_profile: str,
+    session_name: str,
+    window_name: str,
+    target_pane_id: Optional[str] = None,
+    vertical: bool = True,
+    cwd: Optional[str] = None,
+    wait_for_ready: bool = True,
+    size: Optional[int] = None,
+) -> tuple[Terminal, str]:
+    """Create terminal as a pane by splitting an existing pane.
+
+    Args:
+        provider: Provider type (e.g., 'q_cli', 'claude_code')
+        agent_profile: Agent profile name
+        session_name: Session name (must exist)
+        window_name: Window name containing the pane to split
+        target_pane_id: Optional specific pane ID to split. If None, splits the active pane.
+        vertical: If True, split vertically (side by side). If False, split horizontally (top/bottom).
+        cwd: Working directory for the terminal (default: current directory)
+        wait_for_ready: If True, block until provider is ready. If False, return immediately.
+        size: Optional percentage size for the new pane (1-100).
+
+    Returns:
+        Tuple of (Terminal, pane_id)
+    """
+    try:
+        terminal_id = generate_terminal_id()
+
+        if not tmux_client.session_exists(session_name):
+            raise ValueError(f"Session '{session_name}' not found")
+
+        # Create pane by splitting
+        pane_id = tmux_client.create_pane(
+            session_name,
+            window_name,
+            terminal_id,
+            vertical=vertical,
+            start_directory=cwd,
+            target_pane_id=target_pane_id,
+            size=size,
+        )
+
+        # Save terminal metadata to database (use pane_id as part of identifier)
+        db_create_terminal(terminal_id, session_name, window_name, provider, agent_profile, cwd, pane_id=pane_id)
+
+        # Initialize provider (optionally non-blocking)
+        provider_instance = provider_manager.create_provider(
+            provider, terminal_id, session_name, window_name, agent_profile, pane_id=pane_id
+        )
+        provider_instance.initialize(wait_for_ready=wait_for_ready)
+
+        # Create log file and start pipe-pane for this specific pane
+        log_path = TERMINAL_LOG_DIR / f"{terminal_id}.log"
+        log_path.touch()
+        tmux_client.pipe_pane_by_id(session_name, window_name, pane_id, str(log_path))
+
+        terminal = Terminal(
+            id=terminal_id,
+            name=f"{window_name}:{pane_id}",
+            provider=ProviderType(provider),
+            session_name=session_name,
+            agent_profile=agent_profile,
+            status=TerminalStatus.IDLE if wait_for_ready else TerminalStatus.PROCESSING,
+            last_active=datetime.now(),
+            pane_id=pane_id,
+        )
+
+        logger.info(
+            f"Created terminal as pane: {terminal_id} ({pane_id}) in session: {session_name}:{window_name}"
+        )
+        return terminal, pane_id
+
+    except Exception as e:
+        logger.error(f"Failed to create terminal as pane: {e}")
+        raise
+
+
+def apply_team_layout(session_name: str, window_name: str, supervisor_pane_id: Optional[str] = None) -> None:
+    """Apply the team layout: supervisor on top, rest evenly split at bottom.
+
+    Args:
+        session_name: Tmux session name
+        window_name: Tmux window name
+        supervisor_pane_id: Optional pane ID of the supervisor (will be placed on top). If None, uses first pane.
+    """
+    try:
+        # Get session and window for setting options
+        session = tmux_client.server.sessions.get(session_name=session_name)
+        if not session:
+            raise ValueError(f"Session '{session_name}' not found")
+
+        window = session.windows.get(window_name=window_name)
+        if not window:
+            raise ValueError(f"Window '{window_name}' not found")
+
+        # Set main-pane-height to 40% before applying layout
+        window.cmd("set-window-option", "main-pane-height", "40%")
+
+        # Apply main-horizontal layout: first pane on top, rest evenly distributed at bottom
+        tmux_client.select_layout(session_name, window_name, "main-horizontal")
+
+        logger.info(f"Applied team layout to {session_name}:{window_name}")
+    except Exception as e:
+        logger.error(f"Failed to apply team layout: {e}")
         raise
 
 

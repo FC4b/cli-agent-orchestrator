@@ -23,7 +23,7 @@ class TerminalStatus(str, Enum):
 
 
 class Terminal(BaseModel):
-    """Terminal model - represents a tmux window."""
+    """Terminal model - represents a tmux window or pane."""
 
     model_config = ConfigDict(use_enum_values=True)
 
@@ -36,3 +36,4 @@ class Terminal(BaseModel):
         None, description="Current terminal status (live only)"
     )
     last_active: Optional[datetime] = Field(None, description="Last active timestamp")
+    pane_id: Optional[str] = Field(None, description="Tmux pane ID (if using pane layout)")

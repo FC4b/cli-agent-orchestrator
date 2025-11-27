@@ -12,7 +12,8 @@
       "Bash(timeout 5 codex --help:*)",
       "Bash(echo:*)",
       "Bash(codex --version:*)",
-      "mcp__cao-mcp-server__handoff"
+      "mcp__cao-mcp-server__handoff",
+      "mcp__cao-mcp-server__assign"
     ],
     "deny": [],
     "ask": []

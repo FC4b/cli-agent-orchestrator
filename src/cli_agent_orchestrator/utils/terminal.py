@@ -39,14 +39,19 @@ def wait_for_shell(
     window_name: str,
     timeout: float = 10.0,
     polling_interval: float = 0.5,
+    pane_id: str | None = None,
 ) -> bool:
     """Wait for shell to be ready by checking if output is stable (2 consecutive reads are the same and non-empty)."""
-    logger.info(f"Waiting for shell to be ready in {session_name}:{window_name}...")
+    logger.info(f"Waiting for shell to be ready in {session_name}:{window_name}" + (f":{pane_id}" if pane_id else "") + "...")
     start_time = time.time()
     previous_output = None
 
     while time.time() - start_time < timeout:
-        output = tmux_client.get_history(session_name, window_name)
+        # Use pane-aware history retrieval if pane_id is provided
+        if pane_id:
+            output = tmux_client.get_pane_history(session_name, window_name, pane_id)
+        else:
+            output = tmux_client.get_history(session_name, window_name)
 
         if output and output.strip() and previous_output is not None and output == previous_output:
             logger.info(f"Shell ready")

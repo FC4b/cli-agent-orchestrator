@@ -28,6 +28,7 @@ class ProviderManager:
         tmux_session: str,
         tmux_window: str,
         agent_profile: Optional[str] = None,
+        pane_id: Optional[str] = None,
     ) -> BaseProvider:
         """Create and store provider instance."""
         try:
@@ -35,17 +36,17 @@ class ProviderManager:
             if provider_type == ProviderType.Q_CLI.value:
                 if not agent_profile:
                     raise ValueError("Q CLI provider requires agent_profile parameter")
-                provider = QCliProvider(terminal_id, tmux_session, tmux_window, agent_profile)
+                provider = QCliProvider(terminal_id, tmux_session, tmux_window, agent_profile, pane_id=pane_id)
             elif provider_type == ProviderType.KIRO_CLI.value:
                 if not agent_profile:
                     raise ValueError("Kiro CLI provider requires agent_profile parameter")
-                provider = KiroCliProvider(terminal_id, tmux_session, tmux_window, agent_profile)
+                provider = KiroCliProvider(terminal_id, tmux_session, tmux_window, agent_profile, pane_id=pane_id)
             elif provider_type == ProviderType.CLAUDE_CODE.value:
-                provider = ClaudeCodeProvider(terminal_id, tmux_session, tmux_window, agent_profile)
+                provider = ClaudeCodeProvider(terminal_id, tmux_session, tmux_window, agent_profile, pane_id=pane_id)
             elif provider_type == ProviderType.CODEX_CLI.value:
-                provider = CodexCliProvider(terminal_id, tmux_session, tmux_window, agent_profile)
+                provider = CodexCliProvider(terminal_id, tmux_session, tmux_window, agent_profile, pane_id=pane_id)
             elif provider_type == ProviderType.GEMINI_CLI.value:
-                provider = GeminiCliProvider(terminal_id, tmux_session, tmux_window, agent_profile)
+                provider = GeminiCliProvider(terminal_id, tmux_session, tmux_window, agent_profile, pane_id=pane_id)
             else:
                 raise ValueError(f"Unknown provider type: {provider_type}")
 
@@ -89,6 +90,7 @@ class ProviderManager:
             metadata["tmux_session"],
             metadata["tmux_window"],
             metadata["agent_profile"],
+            pane_id=metadata.get("pane_id"),
         )
         logger.info(f"Created provider on-demand for terminal {terminal_id}")
         return provider

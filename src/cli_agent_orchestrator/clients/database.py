@@ -27,6 +27,7 @@ class TerminalModel(Base):
     provider = Column(String, nullable=False)  # "q_cli", "claude_code"
     agent_profile = Column(String)  # "developer", "reviewer" (optional)
     cwd = Column(String)  # Working directory for the terminal
+    pane_id = Column(String)  # Tmux pane ID (for pane layout mode)
     last_active = Column(DateTime, default=datetime.now)
 
 
@@ -77,6 +78,7 @@ def create_terminal(
     provider: str,
     agent_profile: Optional[str] = None,
     cwd: Optional[str] = None,
+    pane_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create terminal metadata record."""
     with SessionLocal() as db:
@@ -87,6 +89,7 @@ def create_terminal(
             provider=provider,
             agent_profile=agent_profile,
             cwd=cwd,
+            pane_id=pane_id,
         )
         db.add(terminal)
         db.commit()
@@ -97,6 +100,7 @@ def create_terminal(
             "provider": terminal.provider,
             "agent_profile": terminal.agent_profile,
             "cwd": terminal.cwd,
+            "pane_id": terminal.pane_id,
         }
 
 
@@ -117,6 +121,7 @@ def get_terminal_metadata(terminal_id: str) -> Optional[Dict[str, Any]]:
             "provider": terminal.provider,
             "agent_profile": terminal.agent_profile,
             "cwd": terminal.cwd,
+            "pane_id": terminal.pane_id,
             "last_active": terminal.last_active,
         }
 
@@ -133,6 +138,7 @@ def list_terminals_by_session(tmux_session: str) -> List[Dict[str, Any]]:
                 "provider": t.provider,
                 "agent_profile": t.agent_profile,
                 "cwd": t.cwd,
+                "pane_id": t.pane_id,
                 "last_active": t.last_active,
             }
             for t in terminals

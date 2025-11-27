@@ -10,11 +10,18 @@ from cli_agent_orchestrator.utils.cli_check import validate_cli_or_raise
 class BaseProvider(ABC):
     """Abstract base class for CLI tool providers."""
 
-    def __init__(self, terminal_id: str, session_name: str, window_name: str):
+    def __init__(
+        self,
+        terminal_id: str,
+        session_name: str,
+        window_name: str,
+        pane_id: Optional[str] = None,
+    ):
         """Initialize provider with terminal context."""
         self.terminal_id = terminal_id
         self.session_name = session_name
         self.window_name = window_name
+        self.pane_id = pane_id  # If set, use pane-specific commands
         self._status = TerminalStatus.IDLE
 
     @property

@@ -5,6 +5,7 @@ import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Optional
 
 import click
 import requests
@@ -111,7 +112,13 @@ def show_config(cwd: str):
 )
 @click.option("--session-name", help="Name of the session (default: auto-generated)")
 @click.option("--headless", is_flag=True, help="Launch in detached mode (don't attach)")
-def start_team(cwd: str, workspace: str, session_name: str, headless: bool):
+@click.option(
+    "--layout",
+    type=click.Choice(["windows", "panes"]),
+    default="windows",
+    help="Layout mode: 'windows' (separate tabs) or 'panes' (split view with supervisor on top)",
+)
+def start_team(cwd: str, workspace: str, session_name: str, headless: bool, layout: str):
     """Start all agents defined in cao.config.json.
 
     Reads the cao.config.json from the project directory and launches
@@ -120,10 +127,17 @@ def start_team(cwd: str, workspace: str, session_name: str, headless: bool):
     Supports VS Code workspace files (.code-workspace) for multi-folder projects.
     When using --workspace, agents will be aware of all folders in the workspace.
 
+    Layout modes:
+    - windows: Each agent in a separate tmux window (tab)
+    - panes: First agent (supervisor) on top, rest split horizontally at bottom
+
     Examples:
 
         # Start team from current directory's config
         cao team start
+
+        # Start with pane layout (supervisor on top)
+        cao team start --layout panes
 
         # Start team from specific project
         cao team start --cwd /path/to/my-project
@@ -176,6 +190,7 @@ def start_team(cwd: str, workspace: str, session_name: str, headless: bool):
     click.echo(f"\n{click.style('Config:', bold=True)} {config_path}")
     click.echo(f"{click.style('Working directory:', bold=True)} {working_dir}")
     click.echo(f"{click.style('Agents:', bold=True)} {len(agents)}")
+    click.echo(f"{click.style('Layout:', bold=True)} {layout}")
     click.echo("-" * 50)
 
     # Ensure cao-server is running
@@ -184,6 +199,19 @@ def start_team(cwd: str, workspace: str, session_name: str, headless: bool):
             "Failed to start cao-server. Please start it manually with 'cao-server'"
         )
 
+    if layout == "panes":
+        _start_team_pane_layout(agents, working_dir, session_name, headless)
+    else:
+        _start_team_window_layout(agents, working_dir, session_name, headless)
+
+
+def _start_team_window_layout(
+    agents: list,
+    working_dir: str,
+    session_name: Optional[str],
+    headless: bool,
+):
+    """Start team with separate windows (tabs) for each agent."""
     created_session = None
     terminals = []
 
@@ -265,7 +293,160 @@ def start_team(cwd: str, workspace: str, session_name: str, headless: bool):
         click.echo(f"{click.style('Terminals created:', fg='green')} {len(terminals)}")
 
         # Attach to tmux session unless headless
-        if not headless:
+        if not headless and created_session:
+            click.echo(f"\nAttaching to session... (use Ctrl+b, d to detach)\n")
+            subprocess.run(["tmux", "attach-session", "-t", created_session])
+
+    except requests.exceptions.RequestException as e:
+        raise click.ClickException(f"Failed to connect to cao-server: {str(e)}")
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+
+def _start_team_pane_layout(
+    agents: list,
+    working_dir: str,
+    session_name: Optional[str],
+    headless: bool,
+):
+    """Start team with pane layout: first agent (supervisor) on top, rest at bottom."""
+    created_session = None
+    window_name = None
+    terminals = []
+    supervisor_pane_id = None
+    bottom_pane_id = None
+
+    def wait_for_terminal(terminal_id: str, agent_name: str) -> tuple[str, bool]:
+        """Wait for a terminal to become ready."""
+        try:
+            url = f"http://{SERVER_HOST}:{SERVER_PORT}/terminals/{terminal_id}/wait"
+            response = requests.post(url, params={"timeout": 30.0})
+            response.raise_for_status()
+            return (agent_name, True)
+        except Exception:
+            return (agent_name, False)
+
+    try:
+        # Phase 1: Create all terminals with pane layout
+        click.echo(f"\n{click.style('Creating panes...', fg='cyan')}")
+
+        for i, agent_config in enumerate(agents):
+            agent = agent_config["agent"]
+            provider = agent_config["provider"]
+
+            # Validate provider
+            if provider not in PROVIDERS:
+                raise click.ClickException(
+                    f"Invalid provider '{provider}' for agent '{agent}'"
+                )
+
+            if i == 0:
+                # First agent (supervisor) - create new session
+                url = f"http://{SERVER_HOST}:{SERVER_PORT}/sessions"
+                params = {
+                    "provider": provider,
+                    "agent_profile": agent,
+                    "cwd": working_dir,
+                    "wait_for_ready": "false",
+                }
+                if session_name:
+                    params["session_name"] = session_name
+
+                response = requests.post(url, params=params)
+                response.raise_for_status()
+                terminal = response.json()
+                created_session = terminal["session_name"]
+                window_name = terminal["name"]
+                terminals.append(terminal)
+
+                # Get the first pane ID (supervisor pane)
+                from cli_agent_orchestrator.clients.tmux import tmux_client
+                supervisor_pane_id = tmux_client.get_pane_id(created_session, window_name, 0)
+
+                click.echo(f"  ⏳ {agent} ({provider}) - supervisor (top)")
+
+            elif i == 1:
+                # Second agent - split horizontally below supervisor with 60% for bottom
+                url = f"http://{SERVER_HOST}:{SERVER_PORT}/sessions/{created_session}/panes"
+                params = {
+                    "window_name": window_name,
+                    "provider": provider,
+                    "agent_profile": agent,
+                    "target_pane_id": supervisor_pane_id,
+                    "vertical": "false",  # Horizontal split (top/bottom)
+                    "cwd": working_dir,
+                    "wait_for_ready": "false",
+                    "size": "60",  # Give bottom section 60% of the space
+                }
+
+                response = requests.post(url, params=params)
+                response.raise_for_status()
+                terminal = response.json()
+                terminals.append(terminal)
+                bottom_pane_id = terminal.get("pane_id")
+
+                click.echo(f"  ⏳ {agent} ({provider}) - bottom")
+
+            else:
+                # Subsequent agents - split the bottom area vertically (side by side)
+                url = f"http://{SERVER_HOST}:{SERVER_PORT}/sessions/{created_session}/panes"
+                params = {
+                    "window_name": window_name,
+                    "provider": provider,
+                    "agent_profile": agent,
+                    "target_pane_id": bottom_pane_id,
+                    "vertical": "true",  # Vertical split (side by side)
+                    "cwd": working_dir,
+                    "wait_for_ready": "false",
+                }
+
+                response = requests.post(url, params=params)
+                response.raise_for_status()
+                terminal = response.json()
+                terminals.append(terminal)
+                # Update bottom_pane_id to the new pane for next split
+                bottom_pane_id = terminal.get("pane_id")
+
+                click.echo(f"  ⏳ {agent} ({provider}) - bottom")
+
+        # Apply layout: main-horizontal (first pane on top, rest at bottom)
+        click.echo(f"\n{click.style('Applying layout...', fg='cyan')}")
+        try:
+            url = f"http://{SERVER_HOST}:{SERVER_PORT}/sessions/{created_session}/layout"
+            params = {
+                "window_name": window_name,
+                "layout": "main-horizontal",
+                "main_pane_percentage": 40,
+            }
+            response = requests.post(url, params=params)
+            response.raise_for_status()
+            click.echo(f"  ✓ Layout applied: supervisor on top, agents at bottom")
+        except Exception as e:
+            click.echo(f"  ⚠ Layout application failed: {e}")
+
+        # Phase 2: Wait for all terminals to be ready in parallel
+        click.echo(f"\n{click.style('Waiting for agents to initialize...', fg='cyan')}")
+
+        with ThreadPoolExecutor(max_workers=len(terminals)) as executor:
+            futures = {
+                executor.submit(wait_for_terminal, t["id"], agents[i]["agent"]): i
+                for i, t in enumerate(terminals)
+            }
+
+            for future in as_completed(futures):
+                agent_name, success = future.result()
+                if success:
+                    click.echo(f"  ✓ {agent_name} {click.style('ready', fg='green')}")
+                else:
+                    click.echo(f"  ⚠ {agent_name} {click.style('timeout (may still be loading)', fg='yellow')}")
+
+        click.echo("-" * 50)
+        click.echo(f"\n{click.style('Session:', fg='green', bold=True)} {created_session}")
+        click.echo(f"{click.style('Panes created:', fg='green')} {len(terminals)}")
+        click.echo(f"{click.style('Layout:', fg='green')} supervisor on top, agents at bottom")
+
+        # Attach to tmux session unless headless
+        if not headless and created_session:
             click.echo(f"\nAttaching to session... (use Ctrl+b, d to detach)\n")
             subprocess.run(["tmux", "attach-session", "-t", created_session])
 

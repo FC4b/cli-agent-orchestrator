@@ -36,8 +36,15 @@ https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line-getting-st
 class QCliProvider(BaseProvider):
     """Provider for Q CLI tool integration."""
 
-    def __init__(self, terminal_id: str, session_name: str, window_name: str, agent_profile: str):
-        super().__init__(terminal_id, session_name, window_name)
+    def __init__(
+        self,
+        terminal_id: str,
+        session_name: str,
+        window_name: str,
+        agent_profile: str,
+        pane_id: Optional[str] = None,
+    ):
+        super().__init__(terminal_id, session_name, window_name, pane_id=pane_id)
         # TODO: remove the ._initialized if it's not referenced anywhere
         self._initialized = False
         self._agent_profile = agent_profile
@@ -68,11 +75,16 @@ class QCliProvider(BaseProvider):
         self.validate_cli_installed()
 
         # Wait for shell to be ready first
-        if not wait_for_shell(tmux_client, self.session_name, self.window_name, timeout=10.0):
+        if not wait_for_shell(tmux_client, self.session_name, self.window_name, timeout=10.0, pane_id=self.pane_id):
             raise TimeoutError("Shell initialization timed out after 10 seconds")
 
         command = f"q chat --agent {self._agent_profile}"
-        tmux_client.send_keys(self.session_name, self.window_name, command)
+
+        # Send command using pane-aware method
+        if self.pane_id:
+            tmux_client.send_keys_to_pane(self.session_name, self.window_name, self.pane_id, command)
+        else:
+            tmux_client.send_keys(self.session_name, self.window_name, command)
 
         if wait_for_ready:
             if not wait_until_status(self, TerminalStatus.IDLE, timeout=30.0, polling_interval=0.5):
@@ -84,7 +96,12 @@ class QCliProvider(BaseProvider):
     def get_status(self, tail_lines: Optional[int] = None) -> TerminalStatus:
         """Get Q CLI status by analyzing terminal output."""
         logger.debug(f"get_status: tail_lines={tail_lines}")
-        output = tmux_client.get_history(self.session_name, self.window_name, tail_lines=tail_lines)
+
+        # Use pane-aware history retrieval
+        if self.pane_id:
+            output = tmux_client.get_pane_history(self.session_name, self.window_name, self.pane_id, tail_lines=tail_lines)
+        else:
+            output = tmux_client.get_history(self.session_name, self.window_name, tail_lines=tail_lines)
 
         if not output:
             return TerminalStatus.ERROR

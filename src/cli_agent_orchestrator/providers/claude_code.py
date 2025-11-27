@@ -46,8 +46,9 @@ class ClaudeCodeProvider(BaseProvider):
         session_name: str,
         window_name: str,
         agent_profile: Optional[str] = None,
+        pane_id: Optional[str] = None,
     ):
-        super().__init__(terminal_id, session_name, window_name)
+        super().__init__(terminal_id, session_name, window_name, pane_id=pane_id)
         self._initialized = False
         self._agent_profile = agent_profile
 
@@ -94,8 +95,11 @@ class ClaudeCodeProvider(BaseProvider):
         command_parts = self._build_claude_command()
         command = " ".join(command_parts)
 
-        # Send Claude Code command using tmux client
-        tmux_client.send_keys(self.session_name, self.window_name, command)
+        # Send Claude Code command using tmux client (pane-aware)
+        if self.pane_id:
+            tmux_client.send_keys_to_pane(self.session_name, self.window_name, self.pane_id, command)
+        else:
+            tmux_client.send_keys(self.session_name, self.window_name, command)
 
         if wait_for_ready:
             # Wait for Claude Code prompt to be ready
@@ -108,8 +112,11 @@ class ClaudeCodeProvider(BaseProvider):
     def get_status(self, tail_lines: Optional[int] = None) -> TerminalStatus:
         """Get Claude Code status by analyzing terminal output."""
 
-        # Use tmux client singleton to get window history
-        output = tmux_client.get_history(self.session_name, self.window_name, tail_lines=tail_lines)
+        # Use tmux client singleton to get window/pane history
+        if self.pane_id:
+            output = tmux_client.get_pane_history(self.session_name, self.window_name, self.pane_id, tail_lines=tail_lines)
+        else:
+            output = tmux_client.get_history(self.session_name, self.window_name, tail_lines=tail_lines)
 
         if not output:
             return TerminalStatus.ERROR
