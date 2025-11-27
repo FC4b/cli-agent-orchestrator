@@ -162,6 +162,10 @@ def create_terminal_as_pane(
             size=size,
         )
 
+        # Set pane title and agent name for identification
+        tmux_client.set_pane_title(session_name, window_name, pane_id, agent_profile)
+        tmux_client.set_pane_agent_name(session_name, window_name, pane_id, agent_profile)
+
         # Save terminal metadata to database (use pane_id as part of identifier)
         db_create_terminal(terminal_id, session_name, window_name, provider, agent_profile, cwd, pane_id=pane_id)
 
@@ -197,13 +201,19 @@ def create_terminal_as_pane(
         raise
 
 
-def apply_team_layout(session_name: str, window_name: str, supervisor_pane_id: Optional[str] = None) -> None:
+def apply_team_layout(
+    session_name: str,
+    window_name: str,
+    supervisor_pane_id: Optional[str] = None,
+    supervisor_agent_profile: Optional[str] = None,
+) -> None:
     """Apply the team layout: supervisor on top, rest evenly split at bottom.
 
     Args:
         session_name: Tmux session name
         window_name: Tmux window name
         supervisor_pane_id: Optional pane ID of the supervisor (will be placed on top). If None, uses first pane.
+        supervisor_agent_profile: Optional agent profile name for the supervisor pane title.
     """
     try:
         # Get session and window for setting options
@@ -220,6 +230,14 @@ def apply_team_layout(session_name: str, window_name: str, supervisor_pane_id: O
 
         # Apply main-horizontal layout: first pane on top, rest evenly distributed at bottom
         tmux_client.select_layout(session_name, window_name, "main-horizontal")
+
+        # Enable pane borders to show agent names
+        tmux_client.enable_pane_borders(session_name, window_name)
+
+        # Set supervisor pane title and agent name if provided
+        if supervisor_pane_id and supervisor_agent_profile:
+            tmux_client.set_pane_title(session_name, window_name, supervisor_pane_id, supervisor_agent_profile)
+            tmux_client.set_pane_agent_name(session_name, window_name, supervisor_pane_id, supervisor_agent_profile)
 
         logger.info(f"Applied team layout to {session_name}:{window_name}")
     except Exception as e:
@@ -281,10 +299,17 @@ def send_input(terminal_id: str, message: str) -> bool:
         if not metadata:
             raise ValueError(f"Terminal '{terminal_id}' not found")
 
-        tmux_client.send_keys(metadata["tmux_session"], metadata["tmux_window"], message)
+        # Use pane-specific method if terminal has a pane_id
+        pane_id = metadata.get("pane_id")
+        if pane_id:
+            tmux_client.send_keys_to_pane(
+                metadata["tmux_session"], metadata["tmux_window"], pane_id, message
+            )
+        else:
+            tmux_client.send_keys(metadata["tmux_session"], metadata["tmux_window"], message)
 
         update_last_active(terminal_id)
-        logger.info(f"Sent input to terminal: {terminal_id}")
+        logger.info(f"Sent input to terminal: {terminal_id}" + (f" (pane: {pane_id})" if pane_id else ""))
         return True
 
     except Exception as e:
@@ -299,7 +324,14 @@ def get_output(terminal_id: str, mode: OutputMode = OutputMode.FULL) -> str:
         if not metadata:
             raise ValueError(f"Terminal '{terminal_id}' not found")
 
-        full_output = tmux_client.get_history(metadata["tmux_session"], metadata["tmux_window"])
+        # Use pane-specific method if terminal has a pane_id
+        pane_id = metadata.get("pane_id")
+        if pane_id:
+            full_output = tmux_client.get_pane_history(
+                metadata["tmux_session"], metadata["tmux_window"], pane_id
+            )
+        else:
+            full_output = tmux_client.get_history(metadata["tmux_session"], metadata["tmux_window"])
 
         if mode == OutputMode.FULL:
             return full_output

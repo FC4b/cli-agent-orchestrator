@@ -412,12 +412,20 @@ def _start_team_pane_layout(
         # Apply layout: main-horizontal (first pane on top, rest at bottom)
         click.echo(f"\n{click.style('Applying layout...', fg='cyan')}")
         try:
+            # Get supervisor agent profile (first agent)
+            supervisor_agent = agents[0]["agent"] if agents else None
+
             url = f"http://{SERVER_HOST}:{SERVER_PORT}/sessions/{created_session}/layout"
             params = {
                 "window_name": window_name,
                 "layout": "main-horizontal",
                 "main_pane_percentage": 40,
             }
+            if supervisor_pane_id:
+                params["supervisor_pane_id"] = supervisor_pane_id
+            if supervisor_agent:
+                params["supervisor_agent_profile"] = supervisor_agent
+
             response = requests.post(url, params=params)
             response.raise_for_status()
             click.echo(f"  ✓ Layout applied: supervisor on top, agents at bottom")

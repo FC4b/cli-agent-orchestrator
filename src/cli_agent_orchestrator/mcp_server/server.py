@@ -272,24 +272,119 @@ async def assign(
 
 
 @mcp.tool()
+async def list_team() -> Dict[str, Any]:
+    """List all agents/terminals in the current session.
+
+    Use this to discover terminal IDs of other agents in your team.
+    This is useful when you need to send messages to specific agents.
+
+    Returns:
+        Dict with list of terminals including their IDs and agent profiles
+    """
+    try:
+        current_terminal_id = os.environ.get("CAO_TERMINAL_ID")
+        if not current_terminal_id:
+            return {"success": False, "error": "CAO_TERMINAL_ID not set"}
+
+        # Get current terminal to find session
+        response = requests.get(f"{API_BASE_URL}/terminals/{current_terminal_id}")
+        response.raise_for_status()
+        current_terminal = response.json()
+        session_name = current_terminal["session_name"]
+
+        # Get all terminals in session
+        response = requests.get(f"{API_BASE_URL}/sessions/{session_name}/terminals")
+        response.raise_for_status()
+        terminals = response.json()
+
+        # Format the response
+        team = []
+        for t in terminals:
+            team.append({
+                "terminal_id": t["id"],
+                "agent_profile": t["agent_profile"],
+                "is_me": t["id"] == current_terminal_id,
+            })
+
+        return {
+            "success": True,
+            "session_name": session_name,
+            "my_terminal_id": current_terminal_id,
+            "team": team,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _find_terminal_by_agent_profile(agent_profile: str) -> str:
+    """Find terminal ID by agent profile in the same session.
+
+    Args:
+        agent_profile: Agent profile name to find
+
+    Returns:
+        Terminal ID
+
+    Raises:
+        ValueError: If agent not found or CAO_TERMINAL_ID not set
+    """
+    current_terminal_id = os.environ.get("CAO_TERMINAL_ID")
+    if not current_terminal_id:
+        raise ValueError("CAO_TERMINAL_ID not set")
+
+    # Get current terminal to find session
+    response = requests.get(f"{API_BASE_URL}/terminals/{current_terminal_id}")
+    response.raise_for_status()
+    current_terminal = response.json()
+    session_name = current_terminal["session_name"]
+
+    # Get all terminals in session
+    response = requests.get(f"{API_BASE_URL}/sessions/{session_name}/terminals")
+    response.raise_for_status()
+    terminals = response.json()
+
+    # Find terminal by agent profile
+    for t in terminals:
+        if t["agent_profile"] == agent_profile and t["id"] != current_terminal_id:
+            return t["id"]
+
+    raise ValueError(f"Agent '{agent_profile}' not found in session {session_name}")
+
+
+@mcp.tool()
 async def send_message(
-    receiver_id: str = Field(description="Target terminal ID to send message to"),
     message: str = Field(description="Message content to send"),
+    receiver_id: str = Field(default=None, description="Target terminal ID to send message to"),
+    agent_profile: str = Field(default=None, description="Target agent profile name (alternative to receiver_id)"),
 ) -> Dict[str, Any]:
     """Send a message to another terminal's inbox.
 
     The message will be delivered when the destination terminal is IDLE.
     Messages are delivered in order (oldest first).
 
+    You can specify the target by either:
+    - receiver_id: The terminal ID (e.g., "abc123ef")
+    - agent_profile: The agent name (e.g., "frontend_developer")
+
+    When using agent_profile, it finds the matching agent in your current session.
+
     Args:
-        receiver_id: Terminal ID of the receiver
         message: Message content to send
+        receiver_id: Terminal ID of the receiver (optional if agent_profile provided)
+        agent_profile: Agent profile name of the receiver (optional if receiver_id provided)
 
     Returns:
         Dict with success status and message details
     """
     try:
-        return _send_to_inbox(receiver_id, message)
+        # Determine target terminal ID
+        target_id = receiver_id
+        if not target_id and agent_profile:
+            target_id = _find_terminal_by_agent_profile(agent_profile)
+        elif not target_id:
+            return {"success": False, "error": "Must provide either receiver_id or agent_profile"}
+
+        return _send_to_inbox(target_id, message)
     except Exception as e:
         return {"success": False, "error": str(e)}
 

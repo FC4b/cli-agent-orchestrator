@@ -282,6 +282,8 @@ async def apply_session_layout(
     window_name: str,
     layout: str = "main-horizontal",
     main_pane_percentage: int = 40,
+    supervisor_pane_id: Optional[str] = None,
+    supervisor_agent_profile: Optional[str] = None,
 ) -> Dict:
     """Apply a tmux layout to a session window.
 
@@ -290,9 +292,16 @@ async def apply_session_layout(
         window_name: Name of the window to apply layout to
         layout: Layout name ('main-horizontal' for supervisor on top, 'main-vertical', 'tiled', etc.)
         main_pane_percentage: Percentage size for the main pane (default: 40%)
+        supervisor_pane_id: Optional pane ID of the supervisor pane
+        supervisor_agent_profile: Optional agent profile name for the supervisor pane title
     """
     try:
-        terminal_service.apply_team_layout(session_name, window_name, None)
+        terminal_service.apply_team_layout(
+            session_name,
+            window_name,
+            supervisor_pane_id=supervisor_pane_id,
+            supervisor_agent_profile=supervisor_agent_profile,
+        )
         return {"success": True, "layout": layout}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

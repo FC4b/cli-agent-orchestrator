@@ -7,7 +7,8 @@ from pathlib import Path
 
 from watchdog.events import FileModifiedEvent, FileSystemEventHandler
 
-from cli_agent_orchestrator.clients.database import get_pending_messages, update_message_status
+from cli_agent_orchestrator.clients.database import get_pending_messages, get_terminal_metadata, update_message_status
+from cli_agent_orchestrator.clients.tmux import tmux_client
 from cli_agent_orchestrator.constants import INBOX_SERVICE_TAIL_LINES, TERMINAL_LOG_DIR
 from cli_agent_orchestrator.models.inbox import MessageStatus
 from cli_agent_orchestrator.models.terminal import TerminalStatus
@@ -74,11 +75,36 @@ def check_and_send_pending_messages(terminal_id: str) -> bool:
         logger.debug(f"Terminal {terminal_id} not ready (status={status})")
         return False
 
-    # Send message
+    # Send message with sender info
     try:
-        terminal_service.send_input(terminal_id, message.message)
+        # Get sender's agent profile to include in message
+        sender_metadata = get_terminal_metadata(message.sender_id)
+        sender_name = sender_metadata.get("agent_profile", message.sender_id) if sender_metadata else message.sender_id
+
+        # Get receiver's metadata for pane title update
+        receiver_metadata = get_terminal_metadata(terminal_id)
+        receiver_name = receiver_metadata.get("agent_profile", terminal_id) if receiver_metadata else terminal_id
+
+        # Format message with sender info header
+        formatted_message = f"[Message from {sender_name}]\n{message.message}"
+
+        terminal_service.send_input(terminal_id, formatted_message)
         update_message_status(message.id, MessageStatus.DELIVERED)
-        logger.info(f"Delivered message {message.id} to terminal {terminal_id}")
+
+        # Update pane border to show message received (if pane-based terminal)
+        if receiver_metadata and receiver_metadata.get("pane_id"):
+            try:
+                # Set message indicator in pane border (won't be overwritten by Claude Code)
+                tmux_client.set_pane_message_indicator(
+                    receiver_metadata["tmux_session"],
+                    receiver_metadata["tmux_window"],
+                    receiver_metadata["pane_id"],
+                    sender_name
+                )
+            except Exception as title_err:
+                logger.warning(f"Failed to update pane message indicator: {title_err}")
+
+        logger.info(f"Delivered message {message.id} from {sender_name} to terminal {terminal_id}")
         return True
     except Exception as e:
         logger.error(f"Failed to send message {message.id} to {terminal_id}: {e}")

@@ -553,6 +553,181 @@ class TmuxClient:
             logger.error(f"Failed to apply layout: {e}")
             raise
 
+    def set_pane_title(self, session_name: str, window_name: str, pane_id: str, title: str) -> None:
+        """Set a title for a specific pane.
+
+        Args:
+            session_name: Tmux session name
+            window_name: Tmux window name
+            pane_id: Pane ID
+            title: Title to set for the pane
+        """
+        try:
+            session = self.server.sessions.get(session_name=session_name)
+            if not session:
+                raise ValueError(f"Session '{session_name}' not found")
+
+            window = session.windows.get(window_name=window_name)
+            if not window:
+                raise ValueError(f"Window '{window_name}' not found in session '{session_name}'")
+
+            # Find the specific pane
+            target_pane = None
+            for pane in window.panes:
+                if pane.pane_id == pane_id:
+                    target_pane = pane
+                    break
+
+            if not target_pane:
+                raise ValueError(f"Pane '{pane_id}' not found")
+
+            # Set pane title using select-pane -T
+            target_pane.cmd("select-pane", "-T", title)
+            logger.info(f"Set pane title '{title}' for {pane_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to set pane title: {e}")
+            raise
+
+    def enable_pane_borders(self, session_name: str, window_name: str) -> None:
+        """Enable pane border status to show pane titles.
+
+        Args:
+            session_name: Tmux session name
+            window_name: Tmux window name
+        """
+        try:
+            session = self.server.sessions.get(session_name=session_name)
+            if not session:
+                raise ValueError(f"Session '{session_name}' not found")
+
+            window = session.windows.get(window_name=window_name)
+            if not window:
+                raise ValueError(f"Window '{window_name}' not found in session '{session_name}'")
+
+            # Enable pane border status to show titles
+            # Use @cao_agent for our custom agent name and @cao_msg for message indicator
+            window.cmd("set-window-option", "pane-border-status", "top")
+            window.cmd("set-window-option", "pane-border-format", " #{@cao_agent}#{@cao_msg} ")
+            logger.info(f"Enabled pane borders for {session_name}:{window_name}")
+
+        except Exception as e:
+            logger.error(f"Failed to enable pane borders: {e}")
+            raise
+
+    def set_pane_agent_name(self, session_name: str, window_name: str, pane_id: str, agent_name: str) -> None:
+        """Set the agent name for a pane (stored in @cao_agent variable).
+
+        Args:
+            session_name: Tmux session name
+            window_name: Tmux window name
+            pane_id: Pane ID
+            agent_name: Agent profile name
+        """
+        try:
+            session = self.server.sessions.get(session_name=session_name)
+            if not session:
+                raise ValueError(f"Session '{session_name}' not found")
+
+            window = session.windows.get(window_name=window_name)
+            if not window:
+                raise ValueError(f"Window '{window_name}' not found in session '{session_name}'")
+
+            # Find the specific pane
+            target_pane = None
+            for pane in window.panes:
+                if pane.pane_id == pane_id:
+                    target_pane = pane
+                    break
+
+            if not target_pane:
+                raise ValueError(f"Pane '{pane_id}' not found")
+
+            # Set custom pane option for agent name
+            target_pane.cmd("set-option", "-p", "@cao_agent", agent_name)
+            target_pane.cmd("set-option", "-p", "@cao_msg", "")  # Initialize empty message indicator
+            logger.info(f"Set agent name '{agent_name}' for pane {pane_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to set pane agent name: {e}")
+            raise
+
+    def set_pane_message_indicator(self, session_name: str, window_name: str, pane_id: str, sender_name: str) -> None:
+        """Set a message indicator for a pane showing who sent a message.
+
+        Args:
+            session_name: Tmux session name
+            window_name: Tmux window name
+            pane_id: Pane ID
+            sender_name: Name of the sender (will show as "📩 from sender_name")
+        """
+        try:
+            session = self.server.sessions.get(session_name=session_name)
+            if not session:
+                raise ValueError(f"Session '{session_name}' not found")
+
+            window = session.windows.get(window_name=window_name)
+            if not window:
+                raise ValueError(f"Window '{window_name}' not found in session '{session_name}'")
+
+            # Find the specific pane
+            target_pane = None
+            for pane in window.panes:
+                if pane.pane_id == pane_id:
+                    target_pane = pane
+                    break
+
+            if not target_pane:
+                raise ValueError(f"Pane '{pane_id}' not found")
+
+            # Set message indicator
+            msg_indicator = f" <- {sender_name}"
+            target_pane.cmd("set-option", "-p", "@cao_msg", msg_indicator)
+            logger.info(f"Set message indicator for pane {pane_id}: {msg_indicator}")
+
+        except Exception as e:
+            logger.error(f"Failed to set pane message indicator: {e}")
+
+    def display_message_in_pane(
+        self, session_name: str, window_name: str, pane_id: str, message: str, duration: int = 3000
+    ) -> None:
+        """Display a temporary message overlay in a specific pane.
+
+        Args:
+            session_name: Tmux session name
+            window_name: Tmux window name
+            pane_id: Pane ID to display message in
+            message: Message to display
+            duration: Duration in milliseconds (default: 3000ms = 3 seconds)
+        """
+        try:
+            session = self.server.sessions.get(session_name=session_name)
+            if not session:
+                raise ValueError(f"Session '{session_name}' not found")
+
+            window = session.windows.get(window_name=window_name)
+            if not window:
+                raise ValueError(f"Window '{window_name}' not found in session '{session_name}'")
+
+            # Find the specific pane
+            target_pane = None
+            for pane in window.panes:
+                if pane.pane_id == pane_id:
+                    target_pane = pane
+                    break
+
+            if not target_pane:
+                raise ValueError(f"Pane '{pane_id}' not found")
+
+            # Set display time and show message in pane
+            session.cmd("set-option", "-t", pane_id, "display-time", str(duration))
+            target_pane.cmd("display-message", message)
+            logger.info(f"Displayed message in pane {pane_id}: {message[:50]}...")
+
+        except Exception as e:
+            logger.error(f"Failed to display message in pane: {e}")
+            # Don't raise - this is a nice-to-have feature
+
     def resize_pane(
         self,
         session_name: str,
